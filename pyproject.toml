@@ -5,7 +5,9 @@ description = "Default template for PDM package"
 authors = [
     {name = "MTh", email = "-"},
 ]
-dependencies = []
+dependencies = [
+    "pyserial>=3.5",
+]
 requires-python = ">=3.12"
 readme = "README.md"
 license = {text = "MIT"}

@@ -6,7 +6,7 @@ from tests.test_robocom import test_can_read_data
 if __name__ == '__main__':
     logging.basicConfig(
         format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
-        level=logging.INFO,
+        level=logging.WARNING,
         datefmt='%Y-%m-%d %H:%M:%S')
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
