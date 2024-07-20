@@ -93,6 +93,10 @@ class RoboTcpInterface(Protocol):
         ...
 
     @staticmethod
+    def gen_hold_on(on:bool) -> Generator[str, str, RoboTcpCommandResult]:
+        ...
+
+    @staticmethod
     def gen_start_program(job_name: str) -> Generator[str, str, RoboTcpCommandResult]:
         ...
 
@@ -129,6 +133,7 @@ class RoboTcpCommands(RoboTcpInterface):
     READ_VAR = "SAVEV"
     WRITE_VAR = "LOADV"
     SET_JOB = "JSEQ"
+    HOLD = "HOLD"
 
     @staticmethod
     def gen_connect(keep_alive: int = -1) -> Generator[str, str, str]:
@@ -172,6 +177,11 @@ class RoboTcpCommands(RoboTcpInterface):
     @staticmethod
     def gen_servo_on() -> Generator[str, str, RoboTcpCommandResult]:
         resp = yield from RoboTcpCommands._gen_hostctrl_(RoboTcpCommands.SVON_CMD, "1")
+        return RoboTcpCommands._check_0000_(resp)
+
+    @staticmethod
+    def gen_hold_on(on:bool) -> Generator[str, str, RoboTcpCommandResult]:
+        resp = yield from RoboTcpCommands._gen_hostctrl_(RoboTcpCommands.HOLD, "1" if on else "0")
         return RoboTcpCommands._check_0000_(resp)
 
     @staticmethod

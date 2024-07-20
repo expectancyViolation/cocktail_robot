@@ -31,6 +31,7 @@ class DefaultPumpSerialEncoder(PumpSerialEncoder):
         res = self.watchdog_bit
         for slot in slots_on[::-1]:
             res = 2 * res + (1 if slot else 0)
+        self.watchdog_bit = 1 - self.watchdog_bit
         return bytes([res])
 
 
@@ -56,11 +57,13 @@ class PumpInterface:
     def update(self, current_time: float, robot_at_pump_spot: bool):
         match self.status:
             case PumpStatus.pumping:
+                print("pumping", self.status)
                 self._update_durations_(current_time)
                 if not robot_at_pump_spot:
                     self.status = PumpStatus.interrupted
                 if self._check_pump_done_():
                     self.status = PumpStatus.finished
+        self.previous_time = current_time
 
     def reset(self):
         self.status = PumpStatus.ready
@@ -69,7 +72,7 @@ class PumpInterface:
     def request_pump(self, pump_task: CocktailRobotPumpTask) -> bool:
         if self.status != PumpStatus.ready:
             return False
-        for slot, duration in pump_task.durations_in_s.items():
+        for slot, duration in enumerate(pump_task.durations_in_s):
             self.pump_durations[slot] = duration
         self.status = PumpStatus.pumping
 

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol, Generator, List
 
-from src.cocktail_24.cocktail_recipes import IngredientId
+from cocktail_24.cocktail_recipes import IngredientId, CocktailRecipe
 
 
 class CocktailPosition(Enum):
@@ -37,10 +37,11 @@ class CocktailRobotZapfTask:
 class CocktailRobotShakeTask:
     num_shakes: int
 
+
 # pumping can be parallel
 @dataclass(frozen=True)
 class CocktailRobotPumpTask:
-    durations_in_s: dict[int, float]  # slot to time in s
+    durations_in_s: list[float]  # slot to time in s
 
 
 CocktailRobotTask = CocktailRobotMoveTask | CocktailRobotShakeTask | CocktailRobotZapfTask | CocktailRobotPumpTask
@@ -56,4 +57,10 @@ class CocktailZapfConfig:
 class CocktailPlanner(Protocol):
 
     def gen_plan_pour_cocktail(self) -> Generator[CocktailRobotTask | None, None, bool]:
+        ...
+
+
+class RecipeCocktailPlannerFactory(Protocol):
+
+    def get_planner(self, recipe: CocktailRecipe) -> CocktailPlanner:
         ...

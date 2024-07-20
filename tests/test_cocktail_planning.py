@@ -1,9 +1,9 @@
-from src.cocktail_24.cocktail_planning import RecipeCocktailPlanner
-from src.cocktail_24.cocktail_robo import CocktailZapfConfig
-from src.cocktail_24.recipe_samples import TypicalIngredients, SampleRecipes
+from cocktail_24.cocktail_planning import DefaultRecipeCocktailPlanner
+from cocktail_24.cocktail_robo import CocktailZapfConfig
+from cocktail_24.recipe_samples import TypicalIngredients, SampleRecipes
 
 
-def get_the_vomit_planner():
+def get_the_vomit_planner_factory():
     zapf_config = CocktailZapfConfig(
         ml_per_zapf=20,
         zapf_slots={0: TypicalIngredients.gin, 4: TypicalIngredients.vodka, 7: TypicalIngredients.tequila,
@@ -13,7 +13,7 @@ def get_the_vomit_planner():
 
     the_vomit = SampleRecipes.the_vomit()
 
-    planner = RecipeCocktailPlanner(zapf_config=zapf_config, recipe=the_vomit)
+    planner = DefaultRecipeCocktailPlanner(zapf_config=zapf_config, recipe=the_vomit)
     return planner
 
 

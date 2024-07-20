@@ -3,10 +3,11 @@ from collections import defaultdict
 import random
 from typing import Sequence
 
-from src.cocktail_24.cocktail_recipes import CocktailRecipe, CocktailRecipeAddIngredient
-from src.cocktail_24.cocktail_robo import CocktailPlanner, ALLOWED_COCKTAIL_MOVES, CocktailPosition, \
-    CocktailRobotMoveTask, CocktailRobotZapfTask, CocktailZapfConfig
-from src.cocktail_24.cocktail_robot_interface import CocktailRoboState
+from cocktail_24.cocktail_recipes import CocktailRecipe, CocktailRecipeAddIngredient
+from cocktail_24.cocktail_robo import CocktailPlanner, ALLOWED_COCKTAIL_MOVES, CocktailPosition, \
+    CocktailRobotMoveTask, CocktailRobotZapfTask, CocktailZapfConfig, RecipeCocktailPlannerFactory, \
+    CocktailRobotPumpTask
+from cocktail_24.cocktail_robot_interface import CocktailRoboState
 
 
 class RandomCocktailPlanner(CocktailPlanner):
@@ -36,7 +37,7 @@ class RandomCocktailPlanner(CocktailPlanner):
             next_pos = random.choice([*cocktail_nbs[next_pos]])
 
 
-class RecipeCocktailPlanner(CocktailPlanner):
+class DefaultRecipeCocktailPlanner(CocktailPlanner):
 
     def __init__(self, zapf_config: CocktailZapfConfig, recipe: CocktailRecipe):
         self._zapf_config_ = zapf_config
@@ -58,6 +59,11 @@ class RecipeCocktailPlanner(CocktailPlanner):
         return to_do
 
     def gen_plan_pour_cocktail(self):
+
+        #yield CocktailRobotMoveTask(to_pos=CocktailPosition.shake)
+        yield CocktailRobotMoveTask(to_pos=CocktailPosition.home)
+        yield CocktailRobotMoveTask(to_pos=CocktailPosition.pump)
+        yield CocktailRobotPumpTask(durations_in_s=[1.0, 2.0, 3.0, 4.0])
         yield CocktailRobotMoveTask(to_pos=CocktailPosition.home)
         yield CocktailRobotMoveTask(to_pos=CocktailPosition.zapf)
         for step in self._recipe_.steps:
@@ -73,3 +79,12 @@ class RecipeCocktailPlanner(CocktailPlanner):
         yield CocktailRobotMoveTask(to_pos=CocktailPosition.pour)
         yield CocktailRobotMoveTask(to_pos=CocktailPosition.shake)
         yield CocktailRobotMoveTask(to_pos=CocktailPosition.home)
+
+
+class DefaultRecipeCocktailPlannerFactory(RecipeCocktailPlannerFactory):
+
+    def __init__(self, zapf_config: CocktailZapfConfig):
+        self._zapf_config_ = zapf_config
+
+    def get_planner(self, recipe: CocktailRecipe) -> CocktailPlanner:
+        return DefaultRecipeCocktailPlanner(zapf_config=self._zapf_config_, recipe=recipe)

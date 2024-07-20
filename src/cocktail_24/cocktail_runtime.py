@@ -1,16 +1,27 @@
 import socket
+import time
+from dataclasses import dataclass
 from typing import Generator
 
-from src.cocktail_24.cocktail_robot_interface import CocktailRobotSendEffect, CocktailRobotEffectResponse, \
+import serial
+
+from cocktail_24.cocktail_robot_interface import CocktailRobotSendEffect, CocktailRobotEffectResponse, \
     CocktailRobotSendResponse
+from cocktail_24.cocktail_system import CocktailSystemEffect, GetTimeEffect, GetTimeResponse, PumpSendEffect, \
+    PumpSendResponse
 
 
-def cocktail_runtime[T](socket_: socket.socket, cocktail_gen: Generator[
-    CocktailRobotSendEffect, CocktailRobotEffectResponse, T]):
+def cocktail_runtime[T](socket_: socket.socket, pump_serial: serial.Serial, cocktail_gen: Generator[
+    CocktailSystemEffect, CocktailRobotEffectResponse, T]):
     try:
         to_handle = next(cocktail_gen)
         while True:
             match to_handle:
+                case GetTimeEffect():
+                    to_handle = cocktail_gen.send(GetTimeResponse(time=time.time()))
+                case PumpSendEffect(to_send=to_send):
+                    pump_serial.write(to_send)
+                    to_handle = cocktail_gen.send(PumpSendResponse())
                 case CocktailRobotSendEffect(data=to_send):
                     if to_send is not None:
                         # print(f"sending {to_send}")

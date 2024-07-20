@@ -1,6 +1,6 @@
 from typing import Generator, Type
 
-from src.cocktail_24.robot_interface.robot_interface import RobotOperations, RoboTcpInterface, RoboTcpCommandResult
+from cocktail_24.robot_interface.robot_interface import RobotOperations, RoboTcpInterface, RoboTcpCommandResult
 
 
 class DefaultRobotOperations(RobotOperations):

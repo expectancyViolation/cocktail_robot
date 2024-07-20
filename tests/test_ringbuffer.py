@@ -1,4 +1,4 @@
-from src.cocktail_24.robot_interface.robocall_ringbuffer import RoboCallRingbuffer
+from cocktail_24.robot_interface.robocall_ringbuffer import RoboCallRingbuffer
 
 
 def test_robocall_ringbuffer():

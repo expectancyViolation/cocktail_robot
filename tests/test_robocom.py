@@ -2,11 +2,15 @@ import socket
 
 import pytest
 
-from src.cocktail_24.cocktail_robot_interface import CocktailRobot
-from src.cocktail_24.cocktail_runtime import cocktail_runtime
-from src.cocktail_24.robot_interface.robot_interface import RoboTcpCommands
-from src.cocktail_24.robot_interface.robot_operations import DefaultRobotOperations
-from tests.test_cocktail_planning import get_the_vomit_planner
+from cocktail_24.cocktail_planning import DefaultRecipeCocktailPlannerFactory
+from cocktail_24.cocktail_robo import CocktailZapfConfig
+from cocktail_24.cocktail_system import CocktailSystem
+from cocktail_24.pump_interface.pump_interface import PumpInterface, DefaultPumpSerialEncoder
+from cocktail_24.recipe_samples import TypicalIngredients, SampleRecipes
+from cocktail_24.cocktail_robot_interface import CocktailRobot
+from cocktail_24.cocktail_runtime import cocktail_runtime
+from cocktail_24.robot_interface.robot_interface import RoboTcpCommands
+from cocktail_24.robot_interface.robot_operations import DefaultRobotOperations
 
 
 @pytest.fixture
@@ -42,19 +46,3 @@ def run_command_gen_sync(socket, G):
         return e.value
 
 
-def test_can_read_data(robo_socket: socket.socket):
-    commands = RoboTcpCommands
-    robo_socket.settimeout(5)
-    run_command_gen_sync(robo_socket, commands.gen_connect())
-    status = run_command_gen_sync(robo_socket, commands.gen_read_status())
-    print(status)
-    ops = DefaultRobotOperations(commands)
-
-    # run_command_gen_sync(robo_socket, commands.gen_set_job("COCK", 10))
-
-    cocktail = CocktailRobot(tcp_interface=commands, operations=ops)
-
-    planner = get_the_vomit_planner()
-
-    cocktail_runtime(robo_socket, cocktail.gen_initialize())
-    cocktail_runtime(robo_socket, cocktail.gen_pour_cocktail(planner))
