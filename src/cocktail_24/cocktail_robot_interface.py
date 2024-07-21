@@ -6,7 +6,7 @@ from typing import Generator, Type
 
 from cocktail_24.pump_interface.pump_interface import PumpInterface
 from cocktail_24.cocktail_robo import CocktailPosition, CocktailPlanner, CocktailRobotTask, CocktailRobotMoveTask, \
-    CocktailRobotShakeTask, CocktailRobotZapfTask, CocktailRobotPumpTask
+    CocktailRobotShakeTask, CocktailRobotZapfTask, CocktailRobotPumpTask, CocktailRobotPourTask
 from cocktail_24.robot_interface.robocall_ringbuffer import RoboCallRingbuffer
 from cocktail_24.robot_interface.robot_interface import RobotRelays, RoboTcpInterface, RobotOperations, \
     RoboTcpCommandResult
@@ -22,13 +22,16 @@ class CocktailRobotConfig:
 @dataclass(frozen=True)
 class CocktailRoboState:
     position: CocktailPosition
+    cup_placed: bool
+    cup_id: int
     ringbuffer_read_pos: int
 
     @staticmethod
     def parse_from_bytes(data: bytes) -> 'CocktailRoboState':
         assert len(data) == CocktailRobotConfig.N_OUPUT_BYTES
         position, ringbuffer_read_pos, *_ = data
-        return CocktailRoboState(position=CocktailPosition(position), ringbuffer_read_pos=ringbuffer_read_pos)
+        return CocktailRoboState(position=CocktailPosition(position), ringbuffer_read_pos=ringbuffer_read_pos,
+                                 cup_placed=True, cup_id=1)
 
 
 @dataclass(frozen=True)
@@ -66,6 +69,7 @@ class CocktailTaskOpcodes(Enum):
     move_to = 1
     zapf = 2
     shake = 3
+    pour = 4
 
 
 class CocktailRobot:
@@ -204,6 +208,8 @@ class CocktailRobot:
                 return bytes([CocktailTaskOpcodes.shake.value, num_shakes, 0, 0])
             case CocktailRobotZapfTask(slot=slot):
                 return bytes([CocktailTaskOpcodes.zapf.value, slot, 0, 0])
+            case CocktailRobotPourTask():
+                return bytes([CocktailTaskOpcodes.pour.value, 0, 0, 0])
             case _:
                 raise Exception(f"unknown task encoding {task=}")
 

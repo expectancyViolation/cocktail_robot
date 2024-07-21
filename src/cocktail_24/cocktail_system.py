@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from cocktail_24.cocktail_recipes import CocktailRecipe
-from cocktail_24.cocktail_robo import CocktailPlanner, RecipeCocktailPlannerFactory, CocktailRobotPumpTask, \
+from cocktail_24.cocktail_robo import RecipeCocktailPlannerFactory, CocktailRobotPumpTask, \
     CocktailPosition
 from cocktail_24.cocktail_robot_interface import CocktailRobot, CocktailRobotSendEffect, CocktailRobotPullWorkEffect, \
     CocktailRobotPullWorkResponse, CocktailRobotReportWorkDoneEffect

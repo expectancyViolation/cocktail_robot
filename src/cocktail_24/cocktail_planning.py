@@ -6,7 +6,7 @@ from typing import Sequence
 from cocktail_24.cocktail_recipes import CocktailRecipe, CocktailRecipeAddIngredient
 from cocktail_24.cocktail_robo import CocktailPlanner, ALLOWED_COCKTAIL_MOVES, CocktailPosition, \
     CocktailRobotMoveTask, CocktailRobotZapfTask, CocktailZapfConfig, RecipeCocktailPlannerFactory, \
-    CocktailRobotPumpTask, CocktailRobotShakeTask
+    CocktailRobotPumpTask, CocktailRobotShakeTask, CocktailRobotPourTask
 from cocktail_24.cocktail_robot_interface import CocktailRoboState
 
 
@@ -61,24 +61,26 @@ class DefaultRecipeCocktailPlanner(CocktailPlanner):
     def gen_plan_pour_cocktail(self):
 
         yield CocktailRobotMoveTask(to_pos=CocktailPosition.home)
-        yield CocktailRobotMoveTask(to_pos=CocktailPosition.shake)
-        yield CocktailRobotShakeTask(num_shakes=5)
-        yield CocktailRobotMoveTask(to_pos=CocktailPosition.home)
+        # yield CocktailRobotMoveTask(to_pos=CocktailPosition.shake)
+        # yield CocktailRobotShakeTask(num_shakes=5)
+        # yield CocktailRobotMoveTask(to_pos=CocktailPosition.home)
         yield CocktailRobotMoveTask(to_pos=CocktailPosition.pump)
-        yield CocktailRobotPumpTask(durations_in_s=[1.0, 2.0, 3.0, 4.0])
+        yield CocktailRobotPumpTask(durations_in_s=[5.0, 0.0, 10.0, 0.0])
         yield CocktailRobotMoveTask(to_pos=CocktailPosition.home)
-        yield CocktailRobotMoveTask(to_pos=CocktailPosition.zapf)
-        for step in self._recipe_.steps:
-            # ignore shakes for now
-            add_ingredients = [inst for inst in step.instructions if isinstance(inst, CocktailRecipeAddIngredient)]
-            zapf_tour = self._plan_zapf_slot_tour_(add_ingredients)
-            for slot, count_ in zapf_tour:
-                for _i in range(count_):
-                    yield CocktailRobotZapfTask(slot=slot)
+        # yield CocktailRobotMoveTask(to_pos=CocktailPosition.zapf)
+        # for step in self._recipe_.steps:
+        #     # ignore shakes for now
+        #     add_ingredients = [inst for inst in step.instructions if isinstance(inst, CocktailRecipeAddIngredient)]
+        #     zapf_tour = self._plan_zapf_slot_tour_(add_ingredients)
+        #     for slot, count_ in zapf_tour:
+        #         for _i in range(count_):
+        #             yield CocktailRobotZapfTask(slot=slot)
 
-        yield CocktailRobotMoveTask(to_pos=CocktailPosition.home)
+        # yield CocktailRobotMoveTask(to_pos=CocktailPosition.home)
         yield CocktailRobotMoveTask(to_pos=CocktailPosition.shake)
+        # while True:
         yield CocktailRobotMoveTask(to_pos=CocktailPosition.pour)
+        yield CocktailRobotPourTask()
         yield CocktailRobotMoveTask(to_pos=CocktailPosition.shake)
         yield CocktailRobotMoveTask(to_pos=CocktailPosition.home)
 

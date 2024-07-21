@@ -38,13 +38,18 @@ class CocktailRobotShakeTask:
     num_shakes: int
 
 
+@dataclass(frozen=True)
+class CocktailRobotPourTask:
+    ...
+
+
 # pumping can be parallel
 @dataclass(frozen=True)
 class CocktailRobotPumpTask:
     durations_in_s: list[float]  # slot to time in s
 
 
-CocktailRobotTask = CocktailRobotMoveTask | CocktailRobotShakeTask | CocktailRobotZapfTask | CocktailRobotPumpTask
+CocktailRobotTask = CocktailRobotMoveTask | CocktailRobotShakeTask | CocktailRobotZapfTask | CocktailRobotPumpTask | CocktailRobotPourTask
 
 
 @dataclass(frozen=True)

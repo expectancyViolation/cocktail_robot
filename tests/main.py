@@ -68,8 +68,8 @@ if __name__ == '__main__':
         connection.connect(("192.168.255.1", 80))
 
         connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
-        # with serial.Serial("/dev/ttyUSB0", 115200, timeout=1) as ser:
-        ser = FakeSerial()
-        main(connection, ser)
+        with serial.Serial("/dev/ttyUSB0", 115200, timeout=1) as ser:
+        # ser=FakeSerial()
+            main(connection, ser)
     finally:
         connection.close()
