@@ -52,6 +52,12 @@ def main(robo_socket: socket.socket, pump_serial: serial.Serial):
     # cocktail_runtime(robo_socket, cocktail.gen_pour_cocktail(planner))
 
 
+class FakeSerial:
+
+    def write(self, data):
+        pass
+
+
 if __name__ == '__main__':
     logging.basicConfig(
         format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
@@ -62,7 +68,8 @@ if __name__ == '__main__':
         connection.connect(("192.168.255.1", 80))
 
         connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
-        with serial.Serial("/dev/ttyUSB0", 115200, timeout=1) as ser:
-            main(connection, ser)
+        # with serial.Serial("/dev/ttyUSB0", 115200, timeout=1) as ser:
+        ser = FakeSerial()
+        main(connection, ser)
     finally:
         connection.close()

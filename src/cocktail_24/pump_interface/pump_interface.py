@@ -34,7 +34,6 @@ class DefaultPumpSerialEncoder(PumpSerialEncoder):
         self.watchdog_bit = 1 - self.watchdog_bit
         return bytes([res])
 
-
 class PumpInterface:
 
     def __init__(self, encoder: PumpSerialEncoder):

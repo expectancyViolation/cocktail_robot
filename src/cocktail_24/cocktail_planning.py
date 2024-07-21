@@ -6,7 +6,7 @@ from typing import Sequence
 from cocktail_24.cocktail_recipes import CocktailRecipe, CocktailRecipeAddIngredient
 from cocktail_24.cocktail_robo import CocktailPlanner, ALLOWED_COCKTAIL_MOVES, CocktailPosition, \
     CocktailRobotMoveTask, CocktailRobotZapfTask, CocktailZapfConfig, RecipeCocktailPlannerFactory, \
-    CocktailRobotPumpTask
+    CocktailRobotPumpTask, CocktailRobotShakeTask
 from cocktail_24.cocktail_robot_interface import CocktailRoboState
 
 
@@ -60,7 +60,9 @@ class DefaultRecipeCocktailPlanner(CocktailPlanner):
 
     def gen_plan_pour_cocktail(self):
 
-        #yield CocktailRobotMoveTask(to_pos=CocktailPosition.shake)
+        yield CocktailRobotMoveTask(to_pos=CocktailPosition.home)
+        yield CocktailRobotMoveTask(to_pos=CocktailPosition.shake)
+        yield CocktailRobotShakeTask(num_shakes=5)
         yield CocktailRobotMoveTask(to_pos=CocktailPosition.home)
         yield CocktailRobotMoveTask(to_pos=CocktailPosition.pump)
         yield CocktailRobotPumpTask(durations_in_s=[1.0, 2.0, 3.0, 4.0])
