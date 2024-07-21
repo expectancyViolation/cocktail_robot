@@ -24,3 +24,7 @@ distribution = true
 dev = [
     "pytest>=8.2.2",
 ]
+
+[tool.pdm.scripts]
+start = "python src/main.py"
+add_ip ="ip addr add dev eth0 192.168.254.2/24"

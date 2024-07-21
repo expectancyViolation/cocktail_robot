@@ -93,7 +93,7 @@ class RoboTcpInterface(Protocol):
         ...
 
     @staticmethod
-    def gen_hold_on(on:bool) -> Generator[str, str, RoboTcpCommandResult]:
+    def gen_hold_on(on: bool) -> Generator[str, str, RoboTcpCommandResult]:
         ...
 
     @staticmethod
@@ -180,7 +180,7 @@ class RoboTcpCommands(RoboTcpInterface):
         return RoboTcpCommands._check_0000_(resp)
 
     @staticmethod
-    def gen_hold_on(on:bool) -> Generator[str, str, RoboTcpCommandResult]:
+    def gen_hold_on(on: bool) -> Generator[str, str, RoboTcpCommandResult]:
         resp = yield from RoboTcpCommands._gen_hostctrl_(RoboTcpCommands.HOLD, "1" if on else "0")
         return RoboTcpCommands._check_0000_(resp)
 

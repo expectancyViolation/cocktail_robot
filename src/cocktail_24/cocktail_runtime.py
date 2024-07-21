@@ -1,18 +1,29 @@
 import socket
 import time
 from dataclasses import dataclass
-from typing import Generator
+from typing import Generator, Any
 
 import serial
 
-from cocktail_24.cocktail_robot_interface import CocktailRobotSendEffect, CocktailRobotEffectResponse, \
-    CocktailRobotSendResponse
 from cocktail_24.cocktail_system import CocktailSystemEffect, GetTimeEffect, GetTimeResponse, PumpSendEffect, \
-    PumpSendResponse
+    PumpSendResponse, CocktailRobotSendResponse, CocktailRobotSendEffect
 
+
+def run_command_gen_sync(socket, G):
+    try:
+        to_send = next(G)
+        while True:
+            # print(f"{to_send=}")
+            if to_send is not None:
+                socket.send(f"{to_send}\r\n".encode("ascii"))
+            response = socket.recv(1024).decode("ascii").strip()
+            # print(f"got response {response=}")
+            to_send = G.send(response)
+    except StopIteration as e:
+        return e.value
 
 def cocktail_runtime[T](socket_: socket.socket, pump_serial: serial.Serial, cocktail_gen: Generator[
-    CocktailSystemEffect, CocktailRobotEffectResponse, T]):
+    CocktailSystemEffect,Any, T]):
     try:
         to_handle = next(cocktail_gen)
         while True:
@@ -22,7 +33,7 @@ def cocktail_runtime[T](socket_: socket.socket, pump_serial: serial.Serial, cock
                 case PumpSendEffect(to_send=to_send):
                     pump_serial.write(to_send)
                     to_handle = cocktail_gen.send(PumpSendResponse())
-                case CocktailRobotSendEffect(data=to_send):
+                case CocktailRobotSendEffect(to_send=to_send):
                     if to_send is not None:
                         # print(f"sending {to_send}")
                         socket_.send(f"{to_send}\r\n".encode("ascii"))

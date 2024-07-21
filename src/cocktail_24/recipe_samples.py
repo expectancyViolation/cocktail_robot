@@ -1,4 +1,4 @@
-from cocktail_24.cocktail_recipes import IngredientId, CocktailRecipe, CocktailRecipeStep, \
+from cocktail_24.cocktail.cocktail_recipes import IngredientId, CocktailRecipe, CocktailRecipeStep, \
     CocktailRecipeAddIngredient
 
 

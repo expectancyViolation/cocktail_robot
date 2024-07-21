@@ -1,3 +1,4 @@
+import logging
 import time
 import uuid
 from dataclasses import dataclass
@@ -25,44 +26,16 @@ class CocktailRoboState:
     cup_placed: bool
     cup_id: int
     ringbuffer_read_pos: int
+    cup_full: bool
+    shaker_empty: bool
 
     @staticmethod
     def parse_from_bytes(data: bytes) -> 'CocktailRoboState':
         assert len(data) == CocktailRobotConfig.N_OUPUT_BYTES
-        position, ringbuffer_read_pos, *_ = data
+        position, ringbuffer_read_pos, io_byte, cup_id, _ = data
         return CocktailRoboState(position=CocktailPosition(position), ringbuffer_read_pos=ringbuffer_read_pos,
-                                 cup_placed=True, cup_id=1)
-
-
-@dataclass(frozen=True)
-class CocktailRobotSendEffect:
-    data: str
-
-
-@dataclass(frozen=True)
-class CocktailRobotSendResponse:
-    resp: str | None
-
-
-@dataclass(frozen=True)
-class CocktailRobotPullWorkEffect:
-    pass
-
-
-@dataclass(frozen=True)
-class CocktailRobotReportWorkDoneEffect:
-    task_id: uuid.UUID
-
-
-@dataclass(frozen=True)
-class CocktailRobotPullWorkResponse:
-    task: CocktailRobotTask
-    task_id: uuid.UUID
-
-
-CocktailRobotEffect = CocktailRobotSendEffect | CocktailRobotPullWorkEffect | CocktailRobotReportWorkDoneEffect
-
-CocktailRobotEffectResponse = CocktailRobotSendResponse | CocktailRobotPullWorkResponse
+                                 cup_placed=(io_byte & 1) > 0, cup_full=(io_byte & 2) > 0,
+                                 shaker_empty=(io_byte & 4) > 0, cup_id=cup_id)
 
 
 class CocktailTaskOpcodes(Enum):
@@ -70,6 +43,12 @@ class CocktailTaskOpcodes(Enum):
     zapf = 2
     shake = 3
     pour = 4
+
+
+@dataclass(frozen=True)
+class CocktailRobotTaskExecution:
+    task: CocktailRobotTask
+    task_id: int
 
 
 class CocktailRobot:
@@ -80,53 +59,39 @@ class CocktailRobot:
         self._ops_ = operations
         self._ringbuffer_: RoboCallRingbuffer | None = None
         self.robo_state: CocktailRoboState | None = None
-        self._robo_tasks_: list[None | CocktailRobotPullWorkResponse] = [None] * RoboCallRingbuffer.RING_LEN
+        self._robo_tasks_: list[None | CocktailRobotTaskExecution] = [None] * RoboCallRingbuffer.RING_LEN
+        self.next_execution: CocktailRobotTaskExecution | None = None
 
     def is_initialized(self) -> bool:
         return (self._ringbuffer_ is not None) and (self.robo_state is not None)
 
-    @staticmethod
-    def _wrap_tcp_effect_[T](gen: Generator[str | None, str | None, T]) -> Generator[
-        CocktailRobotSendEffect, CocktailRobotEffectResponse, T]:
-        x: str = next(gen)
-        try:
-            while True:
-                resp = yield CocktailRobotSendEffect(data=x)
-                assert isinstance(resp, CocktailRobotSendResponse)
-                x = gen.send(resp.resp)
-        except StopIteration as e:
-            return e.value
-
-    def _gen_get_state_(self) -> Generator[CocktailRobotSendEffect, CocktailRobotEffectResponse, CocktailRoboState]:
-        resp = yield from CocktailRobot._wrap_tcp_effect_(
-            self._interface_.gen_read_relays(CocktailRobotConfig.output_relays))
-        return CocktailRoboState.parse_from_bytes(resp)
+    def _gen_get_state_(self) -> Generator[str, str, CocktailRoboState]:
+        res = yield from self._interface_.gen_read_relays(CocktailRobotConfig.output_relays)
+        # print(f"got bytes {res}")
+        state = CocktailRoboState.parse_from_bytes(res)
+        print(f"parsed state{state}")
+        return state
 
     def _gen_write_state_(self, readback: bool = False) -> Generator[
-        CocktailRobotSendEffect, CocktailRobotEffectResponse, bool]:
+        str, str, bool]:
         assert self.is_initialized()
         bytes_to_write = self._ringbuffer_.to_robo_bytes()
         assert len(bytes_to_write) <= CocktailRobotConfig.N_INPUT_BYTES
         padding = CocktailRobotConfig.N_INPUT_BYTES - len(bytes_to_write)
         bytes_to_write += bytes([0] * padding)
 
-        resp = yield from CocktailRobot._wrap_tcp_effect_(
-            self._interface_.gen_write_relays(CocktailRobotConfig.input_relays, bytes_to_write)
-        )
-        # print(f"got write resp {resp}")
+        resp = yield from self._interface_.gen_write_relays(CocktailRobotConfig.input_relays, bytes_to_write)
 
         if readback:
-            readback_resp = yield from CocktailRobot._wrap_tcp_effect_(
-                self._interface_.gen_read_relays(CocktailRobotConfig.input_relays)
-            )
-            # print(f"got readback {readback_resp}")
+            readback_resp = yield from self._interface_.gen_read_relays(CocktailRobotConfig.input_relays)
             assert bytes_to_write == readback_resp
         return True
 
     def gen_sync_state(self, readback: bool = False) -> Generator[
-        CocktailRobotSendEffect, CocktailRobotEffectResponse, bool]:
+        str, str, bool]:
         self.robo_state = yield from self._gen_get_state_()
         write_ok = yield from self._gen_write_state_(readback=readback)
+
         return write_ok
 
     def gen_initialize(self):
@@ -136,68 +101,54 @@ class CocktailRobot:
         return write_ok
 
     def _gen_assure_running_(self):
-        op_status = yield from CocktailRobot._wrap_tcp_effect_(self._interface_.gen_read_status())
+        op_status = yield from self._interface_.gen_read_status()
         if op_status is not None:
             if not op_status.running:
                 if op_status.safeguard:
                     # DANGER THIS STALLS THE LOOP!!
                     print("attempting restart")
-                    could_start = yield from CocktailRobot._wrap_tcp_effect_(self._ops_.gen_start_job(None))
+                    could_start = yield from self._ops_.gen_start_job(None)
                     print(f"could restart {could_start}")
                 else:
                     print("waiting on door")
 
     def gen_initialize_job(self):
-        hold_status = yield from CocktailRobot._wrap_tcp_effect_(self._interface_.gen_hold_on(on=True))
+        hold_status = yield from self._interface_.gen_hold_on(on=True)
         print(f"hold {hold_status}")
-        op_status = yield from CocktailRobot._wrap_tcp_effect_(self._interface_.gen_read_status())
+        op_status = yield from self._interface_.gen_read_status()
         print(f"{op_status=}")
-        hold_status = yield from CocktailRobot._wrap_tcp_effect_(self._interface_.gen_hold_on(on=False))
+        hold_status = yield from self._interface_.gen_hold_on(on=False)
         print(f"hold {hold_status}")
-        op_status = yield from CocktailRobot._wrap_tcp_effect_(self._interface_.gen_read_status())
+        op_status = yield from self._interface_.gen_read_status()
         # we need to reset the queue! there are race conditions!
         assert not op_status.running
         # reset job
         yield from self.gen_sync_state()
-        could_reset = yield from CocktailRobot._wrap_tcp_effect_(self._interface_.gen_set_job("COCK", 0))
+        could_reset = yield from self._interface_.gen_set_job("COCK", 0)
         print(f"could reset {could_reset}")
         assert could_reset == RoboTcpCommandResult.ok
-        could_start = yield from CocktailRobot._wrap_tcp_effect_(self._ops_.gen_start_job("COCK"))
+        could_start = yield from self._ops_.gen_start_job("COCK")
         print(f"could start {could_start}")
         yield from self.gen_sync_state()
 
-    def gen_pour_cocktail(self):
-        next_step_response = yield CocktailRobotPullWorkEffect()
-        # print(next_step_response)
-        # assert isinstance(next_step_response, CocktailRobotPullWorkResponse)
-
-        print(f"received initial step {next_step_response}")
+    def gen_operate(self) -> Generator[str, str, None]:
         while True:
             yield from self.gen_sync_state()
 
-            # check liveness
+            # check liveness. this is kinda slow, and stalls sync updates
+            #   at least it is not an infinite loop :D
             yield from self._gen_assure_running_()
 
-            yield from self._gen_report_finished_tasks_()
-
-            # handle work
-            need_new_work = next_step_response is None
-            if next_step_response is not None:
-                need_new_work = self._enqueue_task_(next_step_response)
-            if need_new_work:
-                next_step_response = yield CocktailRobotPullWorkEffect()
-
-    def _gen_report_finished_tasks_(self):
+    def pop_finished_tasks(self) -> list[int]:
         # check robot feedback
         new_queue_pos = self.robo_state.ringbuffer_read_pos
         finished = []
         while (task_at_pos := self._robo_tasks_[new_queue_pos]) is not None:
             print(f"robot finished work:{task_at_pos}")
-            finished.append(CocktailRobotReportWorkDoneEffect(task_at_pos.task_id))
+            finished.append(task_at_pos.task_id)
             self._robo_tasks_[new_queue_pos] = None
             new_queue_pos = (new_queue_pos - 1) % RoboCallRingbuffer.RING_LEN
-        for el in finished[::-1]:
-            yield el
+        return finished[::-1]
 
     @staticmethod
     def _encode_cocktail_task_(task: CocktailRobotTask) -> bytes:
@@ -213,7 +164,7 @@ class CocktailRobot:
             case _:
                 raise Exception(f"unknown task encoding {task=}")
 
-    def _enqueue_task_(self, task: CocktailRobotPullWorkResponse) -> bool:
+    def enqueue_task(self, task: CocktailRobotTaskExecution) -> bool:
         assert self.is_initialized()
         encoded_task = CocktailRobot._encode_cocktail_task_(task.task)
         assert len(encoded_task) == RoboCallRingbuffer.ARG_CNT

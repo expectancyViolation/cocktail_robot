@@ -3,10 +3,11 @@ from collections import defaultdict
 import random
 from typing import Sequence
 
-from cocktail_24.cocktail_recipes import CocktailRecipe, CocktailRecipeAddIngredient
+from cocktail_24.cocktail.cocktail_bookkeeping import CocktailZapfStationConfig
+from cocktail_24.cocktail.cocktail_recipes import CocktailRecipe, CocktailRecipeAddIngredient
 from cocktail_24.cocktail_robo import CocktailPlanner, ALLOWED_COCKTAIL_MOVES, CocktailPosition, \
-    CocktailRobotMoveTask, CocktailRobotZapfTask, CocktailZapfConfig, RecipeCocktailPlannerFactory, \
-    CocktailRobotPumpTask, CocktailRobotShakeTask, CocktailRobotPourTask
+    CocktailRobotMoveTask, CocktailRobotZapfTask,  RecipeCocktailPlannerFactory, \
+    CocktailRobotPumpTask, CocktailRobotPourTask
 from cocktail_24.cocktail_robot_interface import CocktailRoboState
 
 
@@ -39,7 +40,7 @@ class RandomCocktailPlanner(CocktailPlanner):
 
 class DefaultRecipeCocktailPlanner(CocktailPlanner):
 
-    def __init__(self, zapf_config: CocktailZapfConfig, recipe: CocktailRecipe):
+    def __init__(self, zapf_config: CocktailZapfStationConfig, recipe: CocktailRecipe):
         self._zapf_config_ = zapf_config
         self._recipe_ = recipe
 
@@ -60,8 +61,8 @@ class DefaultRecipeCocktailPlanner(CocktailPlanner):
 
     def gen_plan_pour_cocktail(self):
 
+        yield CocktailRobotMoveTask(to_pos=CocktailPosition.shake)
         yield CocktailRobotMoveTask(to_pos=CocktailPosition.home)
-        # yield CocktailRobotMoveTask(to_pos=CocktailPosition.shake)
         # yield CocktailRobotShakeTask(num_shakes=5)
         # yield CocktailRobotMoveTask(to_pos=CocktailPosition.home)
         yield CocktailRobotMoveTask(to_pos=CocktailPosition.pump)
@@ -87,7 +88,7 @@ class DefaultRecipeCocktailPlanner(CocktailPlanner):
 
 class DefaultRecipeCocktailPlannerFactory(RecipeCocktailPlannerFactory):
 
-    def __init__(self, zapf_config: CocktailZapfConfig):
+    def __init__(self, zapf_config: CocktailZapfStationConfig):
         self._zapf_config_ = zapf_config
 
     def get_planner(self, recipe: CocktailRecipe) -> CocktailPlanner:

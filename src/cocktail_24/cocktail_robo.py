@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Protocol, Generator, List
+from typing import Protocol, Generator
 
-from cocktail_24.cocktail_recipes import IngredientId, CocktailRecipe
+from cocktail_24.cocktail.cocktail_recipes import CocktailRecipe
 
 
 class CocktailPosition(Enum):
@@ -51,12 +51,6 @@ class CocktailRobotPumpTask:
 
 CocktailRobotTask = CocktailRobotMoveTask | CocktailRobotShakeTask | CocktailRobotZapfTask | CocktailRobotPumpTask | CocktailRobotPourTask
 
-
-@dataclass(frozen=True)
-class CocktailZapfConfig:
-    ml_per_zapf: float
-    zapf_slots: dict[int, IngredientId]
-    cup_limit_in_ml: float
 
 
 class CocktailPlanner(Protocol):
