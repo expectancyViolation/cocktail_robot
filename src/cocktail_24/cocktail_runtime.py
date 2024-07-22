@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import socket
 import time
 from typing import Generator, Any
@@ -72,30 +73,25 @@ from serial_asyncio import open_serial_connection
 
 async def async_cocktail_runtime(cocktail_gen):
     robo_reader, robo_writer = await asyncio.open_connection("192.168.255.1", 80)
-    reader, writer = await open_serial_connection(url="/dev/ttyUSB0", baudrate=115200)
+    # reader, writer = await open_serial_connection(url="/dev/ttyUSB0", baudrate=115200)
     try:
+        # print("FEED")
         to_handle = next(cocktail_gen)
         while True:
-            # print(f"to handle {to_handle}")
+            logging.debug(f"runtime to handle {to_handle}")
             match to_handle:
                 case GetTimeEffect():
                     to_handle = cocktail_gen.send(GetTimeResponse(time=time.time()))
                 case PumpSendEffect(to_send=to_send):
-                    writer.write(to_send)
                     to_handle = cocktail_gen.send(PumpSendResponse())
                 case CocktailRobotSendEffect(to_send=to_send):
                     if to_send is not None:
-                        # print(f"sending {to_send}")
+                        logging.debug(f"sending {to_send}")
                         robo_writer.write(f"{to_send}\r\n".encode("ascii"))
-                        # print(f"wrote {to_send}")
                     try:
-                        # print("tryna read")
-                        # r = await robo_reader.readline()
-                        # print(f"got r:{r}")
                         raw_resp = await robo_reader.readuntil(b"\r")
-                        # print(f"read {raw_resp}")
                         response = raw_resp.decode("ascii").strip()
-                        # print(f"received {response}")
+                        logging.debug(f"received {response}")
                         to_handle = cocktail_gen.send(
                             CocktailRobotSendResponse(resp=response)
                         )

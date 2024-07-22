@@ -91,7 +91,6 @@ class CocktailRobot:
         )
         # print(f"got bytes {res}")
         state = CocktailRoboState.parse_from_bytes(res)
-        print(f"parsed state{state}")
         return state
 
     def _gen_write_state_(self, readback: bool = False) -> Generator[str, str, bool]:

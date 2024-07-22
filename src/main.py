@@ -1,24 +1,18 @@
 import asyncio
 import logging
-import socket
 import uuid
-from typing import Generator
 
-import serial
-
+from cocktail_24.cocktail.cocktail_api import InMemoryCocktailBarStatePersistence
 from cocktail_24.cocktail.cocktail_bookkeeping import CocktailZapfStationConfig
-from cocktail_24.cocktail_planning import DefaultRecipeCocktailPlannerFactory
+from cocktail_24.cocktail_management import CocktailManagement
+from cocktail_24.planning.cocktail_planning import DefaultRecipeCocktailPlannerFactory
 from cocktail_24.cocktail_robot_interface import CocktailRobot
 from cocktail_24.cocktail_runtime import (
-    cocktail_runtime,
-    run_command_gen_sync,
     async_cocktail_runtime,
 )
 from cocktail_24.cocktail_system import (
     CocktailSystem,
     CocktailSystemPlan,
-    CocktailRobotSendEffect,
-    CocktailRobotSendResponse,
 )
 from cocktail_24.pump_interface.pump_interface import (
     DefaultPumpSerialEncoder,
@@ -29,7 +23,7 @@ from cocktail_24.robot_interface.robot_interface import RoboTcpCommands
 from cocktail_24.robot_interface.robot_operations import DefaultRobotOperations
 
 
-def config_system() -> tuple[CocktailSystem, CocktailSystemPlan]:
+def configure_system() -> tuple[CocktailSystem, CocktailSystemPlan]:
     commands = RoboTcpCommands
 
     ops = DefaultRobotOperations(commands)
@@ -62,17 +56,26 @@ def config_system() -> tuple[CocktailSystem, CocktailSystemPlan]:
     return cocktail_system, plan
 
 
-def gen_run_robo(cocktail_system, plan):
+def configure_management(cocktail_system: CocktailSystem):
+    persistence = InMemoryCocktailBarStatePersistence()
+    management = CocktailManagement(
+        cocktail_persistence=persistence, cocktail_system=cocktail_system
+    )
 
-    print(f"plan is {plan}")
+
+def gen_run_robo(cocktail_system: CocktailSystem, initial_plan=None):
+
+    # TODO: system factory to allow reset?
     yield from cocktail_system.gen_initialize()
 
-    execution = cocktail_system.gen_execute_plan(plan)
+    if initial_plan is not None:
+        cocktail_system.run_plan(initial_plan)
+
+    execution = cocktail_system.gen_run()
     effect = next(execution)
     while True:
         send = yield effect
-        effect = next(execution)
-
+        effect = execution.send(send)
 
 
 class FakeSerial:
@@ -88,4 +91,5 @@ if __name__ == "__main__":
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    # asyncio.run(async_cocktail_runtime(cocktail_gen=gen_run_robo()))
+    system, plan = configure_system()
+    asyncio.run(async_cocktail_runtime(cocktail_gen=gen_run_robo(system, plan)))

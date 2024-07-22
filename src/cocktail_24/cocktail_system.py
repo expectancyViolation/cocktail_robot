@@ -15,6 +15,7 @@ from cocktail_24.cocktail_robo import (
 from cocktail_24.cocktail_robot_interface import (
     CocktailRobot,
     CocktailRobotTaskExecution,
+    CocktailRoboState,
 )
 from cocktail_24.pump_interface.pump_interface import PumpInterface, PumpStatus
 
@@ -51,8 +52,8 @@ class CocktailRobotSendResponse:
 CocktailSystemEffect = CocktailRobotSendEffect | GetTimeEffect | PumpSendEffect
 
 
-class CocktailSystemState(Enum):
-    initializing = "initializing"
+class CocktailSystemStatus(Enum):
+    initializing_plan = "initializing_plan"
     feeding_robot = "feeding_robot"
     pumping = "pumping"
     idle = "idle"
@@ -61,7 +62,7 @@ class CocktailSystemState(Enum):
 @dataclass(frozen=True)
 class CocktailSystemPlan:
     plan_uuid: uuid.uuid4()
-    steps: tuple[CocktailRobotTask]
+    steps: tuple[CocktailRobotTask, ...]
 
 
 @dataclass(frozen=True)
@@ -74,7 +75,7 @@ class PlanProgress:
         return self.finished_step_pos + 1 == len(self.plan.steps)
 
     def update(
-        self, queued_step_pos: int | None, finished_step_pos: int | None
+        self, queued_step_pos: int | None = None, finished_step_pos: int | None = None
     ) -> "PlanProgress":
         new_queued_step_pos = (
             queued_step_pos if queued_step_pos is not None else self.queued_step_pos
@@ -89,6 +90,14 @@ class PlanProgress:
             queued_step_pos=new_queued_step_pos,
             finished_step_pos=new_finished_step_pos,
         )
+
+
+@dataclass(frozen=True)
+class CocktailSystemState:
+    status: CocktailSystemStatus
+    plan_progress: PlanProgress
+    robot_state: CocktailRoboState
+    pump_status: PumpStatus
 
 
 def _wrap_tcp_effect_[
@@ -106,11 +115,6 @@ def _wrap_tcp_effect_[
         return e.value
 
 
-class CocktailSystemStatus(Enum):
-    idle = "idle"
-    executing = "executing"
-
-
 class CocktailSystem:
 
     def __init__(
@@ -119,13 +123,14 @@ class CocktailSystem:
         self._robot_ = robot
         self._robot_operation_ = robot.gen_operate()
         self._pump_ = pump
-        self._state_ = CocktailSystemState.feeding_robot
+        self._state_ = CocktailSystemStatus.idle
         self._robot_effect_ = CocktailRobotSendEffect(
             to_send=next(self._robot_operation_)
         )
         self._current_time_ = initial_time
         self._events_ = []
         self._plan_progress_: PlanProgress | None = None
+        self._plan_execution_: Generator[None, None, None] | None = None
 
     def get_progress(self) -> PlanProgress | None:
         return self._plan_progress_
@@ -134,8 +139,36 @@ class CocktailSystem:
         yield from _wrap_tcp_effect_(self._robot_.gen_initialize())
         yield from _wrap_tcp_effect_(self._robot_.gen_initialize_job())
 
+    def run_plan(self, plan: CocktailSystemPlan):
+        assert self._state_ == CocktailSystemStatus.idle
+        assert self._plan_execution_ is None
+        self._state_ = CocktailSystemStatus.initializing_plan
+        self._plan_execution_ = self.gen_execute_plan(plan)
+
+    def get_state(self):
+        # TODO: DANGER states of system,robot and pump are not "temporary consistent"
+        #   i.e. cocktail system might not have processed partial robot state update
+        #   use system state for decisions!
+        return CocktailSystemState(
+            status=self._state_,
+            plan_progress=self._plan_progress_,
+            robot_state=self._robot_.robo_state,
+            pump_status=self._pump_.status,
+        )
+
     def gen_run(self):
-        yield from self.gen_handle_effects()
+        while True:
+            yield from self.gen_handle_effects()
+            if self._state_ == CocktailSystemStatus.idle:
+                pass
+            else:
+                assert self._plan_execution_ is not None
+                try:
+                    next(self._plan_execution_)
+                except StopIteration as e:
+                    print(f"execution result {e}")
+                    self._state_ = CocktailSystemStatus.idle
+                    self._plan_execution_ = None
 
     # handle effects (this is "fair share" atm, so everyone gets one step each)
     def gen_handle_effects(self):
@@ -176,7 +209,7 @@ class CocktailSystem:
         )
         last_step_num = task_execs[-1].task_id
         while self._plan_progress_.finished_step_pos < last_step_num:
-            yield from self.gen_handle_effects()
+            yield
             self.check_finished_robo_tasks()
             if len(task_execs) > 0:
                 could_enqueue = self._robot_.enqueue_task(task_execs[0])
@@ -195,7 +228,7 @@ class CocktailSystem:
             self._pump_.request_pump(pump_step)
             self._plan_progress_ = self._plan_progress_.update(queued_step_pos=step_num)
             while self._pump_.status == PumpStatus.pumping:
-                yield from self.gen_handle_effects()
+                yield
             self._pump_.reset()
             self._plan_progress_ = self._plan_progress_.update(
                 finished_step_pos=step_num
@@ -211,11 +244,10 @@ class CocktailSystem:
         )
         for is_pump, numbered_steps in step_groups:
             if not is_pump:
-                self._state_ = CocktailSystemState.feeding_robot
+                self._state_ = CocktailSystemStatus.feeding_robot
                 yield from self.gen_handle_robot_steps(numbered_steps)
             else:
-                self._state_ = CocktailSystemState.pumping
+                self._state_ = CocktailSystemStatus.pumping
                 yield from self.gen_handle_pump_steps(numbered_steps)
         # handle effects once more for good measure
-        yield from self.gen_handle_effects()
-        self._state_ = CocktailSystemState.idle
+        self._state_ = CocktailSystemStatus.idle

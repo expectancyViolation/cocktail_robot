@@ -66,6 +66,11 @@ class OrderCancelledEvent:
 
 
 @dataclass(frozen=True)
+class OrderEnqueuedEvent:
+    order_id: uuid.UUID
+
+
+@dataclass(frozen=True)
 class OrderFulfilledEvent:
     order_id: uuid.UUID
 
@@ -73,11 +78,6 @@ class OrderFulfilledEvent:
 @dataclass(frozen=True)
 class QueuePurgedEvent:
     pass
-
-
-@dataclass(frozen=True)
-class SnapshotEvent:
-    json_data: str
 
 
 @dataclass(frozen=True)
@@ -90,10 +90,10 @@ CocktailBarEvent = (
     SlotRefilledEvent
     | AmountPouredEvent
     | OrderPlacedEvent
+    | OrderEnqueuedEvent
     | OrderFulfilledEvent
     | OrderCancelledEvent
     | QueuePurgedEvent
-    | SnapshotEvent
     | RecipeCreatedEvent
 )
 
@@ -105,6 +105,7 @@ class CocktailBarConfig:
 
 class OrderStatus(Enum):
     ordered = "ordered"
+    enqueued = "enqueued"
     cancelled = "cancelled"
     fulfilled = "fulfilled"
 
@@ -120,7 +121,7 @@ class Order:
 
 @dataclass
 class CocktailBarState:
-    order_queue: list[OrderId]
+    order_queue: tuple[OrderId, ...]
     slots: list[SlotStatus]
 
     orders: dict[OrderId, Order]
@@ -170,6 +171,15 @@ class CocktailBarState:
         else:
             logging.error((f"tried to readd existing order {order_placed}"))
 
+    def handle_order_status_change(self, order_id, new_state: OrderStatus):
+        if order_id in self.orders:
+            self.orders[order_id].status = new_state
+        else:
+            logging.warning(
+                (f"tried to mark nonexisting order {order_id=} {new_state=}")
+            )
+        self.order_queue = tuple(id_ for id_ in self.order_queue if id_ != order_id)
+
     @staticmethod
     def apply_events(
         events: Iterable[tuple[datetime.datetime, CocktailBarEvent]],
@@ -188,25 +198,16 @@ class CocktailBarState:
                     state.handle_poured(event)
                 case OrderPlacedEvent():
                     state.handle_order_placed(event, time_of_event)
+                case OrderEnqueuedEvent(order_id=order_id):
+                    state.handle_order_status_change(order_id, OrderStatus.enqueued)
                 case OrderFulfilledEvent(order_id=order_id):
-                    if order_id in state.orders:
-                        state.orders[order_id].status = OrderStatus.fulfilled
-                    else:
-                        logging.warning((f"tried to mark nonexisting order {event}"))
+                    state.handle_order_status_change(order_id, OrderStatus.fulfilled)
                 case OrderCancelledEvent(order_id=order_id):
-                    if order_id in state.orders:
-                        state.orders[order_id].status = OrderStatus.cancelled
-                    else:
-                        logging.warning((f"tried to mark nonexisting order {event}"))
+                    state.handle_order_status_change(order_id, OrderStatus.cancelled)
                 case RecipeCreatedEvent(recipe=recipe, creator_user_id=_user_id):
                     state.recipes[recipe.recipe_id] = recipe
-
                 case QueuePurgedEvent():
                     state.order_queue = []
-                case SnapshotEvent(json_data=_json_data):
-                    logging.error("snapshotting not yet implemented")
-                case _:
-                    logging.error(f"unhandled event in BarState reconstruction {event}")
         return state
 
     def json_snapshot(self) -> any:
@@ -251,9 +252,3 @@ def test_can_dump_bar_state():
 
     state = CocktailBarState.apply_events(events=timed_events)
     print(state.json_snapshot())
-
-
-@dataclass(frozen=True)
-class CocktailZapfStationConfig:
-    ml_per_zapf: float
-    zapf_slots: dict[int, IngredientId]

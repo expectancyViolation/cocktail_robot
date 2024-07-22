@@ -1,4 +1,4 @@
-from cocktail_24.cocktail_planning import DefaultRecipeCocktailPlanner
+from cocktail_24.planning.cocktail_planning import DefaultRecipeCocktailPlanner
 from cocktail_24.cocktail_robo import CocktailZapfConfig
 from cocktail_24.recipe_samples import TypicalIngredients, SampleRecipes
 
