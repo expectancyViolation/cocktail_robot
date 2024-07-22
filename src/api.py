@@ -4,13 +4,27 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from cocktail_24.cocktail.cocktail_api import (
+    CocktailApi,
+    InMemoryCocktailBarStatePersistence,
+)
 from cocktail_24.cocktail.cocktail_bookkeeping import OrderId
 from cocktail_24.cocktail_runtime import async_cocktail_runtime
-from main import gen_run_robo, configure_system
-
-system, plan = configure_system()
+from main import (
+    gen_run_robo,
+    configure_system,
+    configure_management,
+    configure_initial_state,
+)
 
 runtime_ok = False
+
+system, system_config = configure_system()
+persistence = InMemoryCocktailBarStatePersistence(
+    initial_state=configure_initial_state()
+)
+management = configure_management(system, system_config, persistence=persistence)
+cock_api = CocktailApi(state_persistence=persistence)
 
 
 @asynccontextmanager
@@ -26,7 +40,7 @@ async def lifespan(app: FastAPI):
             logging.exception(e)
             runtime_ok = False
 
-    rt = async_cocktail_runtime(cocktail_gen=gen_run_robo(system))
+    rt = async_cocktail_runtime(cocktail_gen=gen_run_robo(system, management))
 
     t = asyncio.create_task(log_exceptions(rt))
     runtime_ok = True
@@ -40,13 +54,27 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/order/{order_id}")
 async def get_order_details(order_id: OrderId):
-    system.run_plan(plan)
+    cs = persistence.get_current_state()
+    return cs
+
+
+@app.get("/stort")
+async def get_stort():
+    cs = persistence.get_current_state()
+    o_id = next(o_id for o_id in cs.orders)
+    cock_api.enqueue_order(order_id=o_id)
+    print(f"enqueued:{persistence.get_current_state()}")
+
+
+@app.get("/order/{order_id}")
+async def get_order_details(order_id: OrderId):
+    # system.run_plan(plan)
     return str(system._robot_.robo_state)
 
 
 @app.get("/system/run_plan")
 async def run_plan():
-    system.run_plan(plan)
+    # system.run_plan(plan)
     return str(system._robot_.robo_state)
 
 

@@ -8,13 +8,13 @@ from typing import Generator, Type
 from cocktail_24.pump_interface.pump_interface import PumpInterface
 from cocktail_24.cocktail_robo import (
     CocktailPosition,
-    CocktailPlanner,
     CocktailRobotTask,
     CocktailRobotMoveTask,
     CocktailRobotShakeTask,
     CocktailRobotZapfTask,
     CocktailRobotPumpTask,
     CocktailRobotPourTask,
+    CocktailRobotCleanTask,
 )
 from cocktail_24.robot_interface.robocall_ringbuffer import RoboCallRingbuffer
 from cocktail_24.robot_interface.robot_interface import (
@@ -60,6 +60,7 @@ class CocktailTaskOpcodes(Enum):
     zapf = 2
     shake = 3
     pour = 4
+    clean = 5
 
 
 @dataclass(frozen=True)
@@ -186,6 +187,8 @@ class CocktailRobot:
                 return bytes([CocktailTaskOpcodes.zapf.value, slot, 0, 0])
             case CocktailRobotPourTask():
                 return bytes([CocktailTaskOpcodes.pour.value, 0, 0, 0])
+            case CocktailRobotCleanTask():
+                return bytes([CocktailTaskOpcodes.clean.value, 0, 0, 0])
             case _:
                 raise Exception(f"unknown task encoding {task=}")
 

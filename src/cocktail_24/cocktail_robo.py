@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Protocol, Generator
+from typing import Protocol, Generator, Sequence
 
+from cocktail_24.cocktail.cocktail_bookkeeping import SlotStatus
 from cocktail_24.cocktail.cocktail_recipes import CocktailRecipe
 
 
@@ -20,7 +21,10 @@ ALLOWED_COCKTAIL_MOVES = (
     (CocktailPosition.home, CocktailPosition.clean),
     (CocktailPosition.home, CocktailPosition.pump),
     (CocktailPosition.shake, CocktailPosition.pour),
+    (CocktailPosition.clean, CocktailPosition.pump),
 )
+
+ALLOWED_COCKTAIL_MOVES += tuple([(y, x) for x, y in ALLOWED_COCKTAIL_MOVES])
 
 
 @dataclass(frozen=True)
@@ -42,6 +46,10 @@ class CocktailRobotShakeTask:
 class CocktailRobotPourTask: ...
 
 
+@dataclass(frozen=True)
+class CocktailRobotCleanTask: ...
+
+
 # pumping can be parallel
 @dataclass(frozen=True)
 class CocktailRobotPumpTask:
@@ -54,16 +62,5 @@ CocktailRobotTask = (
     | CocktailRobotZapfTask
     | CocktailRobotPumpTask
     | CocktailRobotPourTask
+    | CocktailRobotCleanTask
 )
-
-
-class CocktailPlanner(Protocol):
-
-    def gen_plan_pour_cocktail(
-        self,
-    ) -> Generator[CocktailRobotTask | None, None, bool]: ...
-
-
-class RecipeCocktailPlannerFactory(Protocol):
-
-    def get_planner(self, recipe: CocktailRecipe) -> CocktailPlanner: ...

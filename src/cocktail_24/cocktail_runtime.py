@@ -72,8 +72,12 @@ from serial_asyncio import open_serial_connection
 
 
 async def async_cocktail_runtime(cocktail_gen):
+    real_pump = True
     robo_reader, robo_writer = await asyncio.open_connection("192.168.255.1", 80)
-    # reader, writer = await open_serial_connection(url="/dev/ttyUSB0", baudrate=115200)
+    if real_pump:
+        reader, writer = await open_serial_connection(
+            url="/dev/ttyUSB0", baudrate=115200
+        )
     try:
         # print("FEED")
         to_handle = next(cocktail_gen)
@@ -83,6 +87,7 @@ async def async_cocktail_runtime(cocktail_gen):
                 case GetTimeEffect():
                     to_handle = cocktail_gen.send(GetTimeResponse(time=time.time()))
                 case PumpSendEffect(to_send=to_send):
+                    writer.write(to_send)
                     to_handle = cocktail_gen.send(PumpSendResponse())
                 case CocktailRobotSendEffect(to_send=to_send):
                     if to_send is not None:

@@ -4,8 +4,9 @@ import uuid
 from enum import Enum
 from typing import NewType, Iterable
 
-from pydantic import RootModel
-from pydantic.dataclasses import dataclass
+# from pydantic import RootModel
+# from pydantic.dataclasses import dataclass
+from dataclasses import dataclass
 
 from cocktail_24.cocktail.cocktail_recipes import IngredientId, CocktailRecipe, RecipeId
 from cocktail_24.recipe_samples import TypicalIngredients, SampleRecipes
@@ -76,6 +77,11 @@ class OrderFulfilledEvent:
 
 
 @dataclass(frozen=True)
+class OrderExecutingEvent:
+    order_id: uuid.UUID
+
+
+@dataclass(frozen=True)
 class QueuePurgedEvent:
     pass
 
@@ -91,6 +97,7 @@ CocktailBarEvent = (
     | AmountPouredEvent
     | OrderPlacedEvent
     | OrderEnqueuedEvent
+    | OrderExecutingEvent
     | OrderFulfilledEvent
     | OrderCancelledEvent
     | QueuePurgedEvent
@@ -108,15 +115,25 @@ class OrderStatus(Enum):
     enqueued = "enqueued"
     cancelled = "cancelled"
     fulfilled = "fulfilled"
+    executing = "executing"
 
 
-@dataclass
+@dataclass(frozen=True)
 class Order:
     order_id: OrderId
     status: OrderStatus
     ordered_by: UserId
     recipe_id: RecipeId
     time_of_order: datetime.datetime
+
+    def update_status(self, status: OrderStatus) -> "Order":
+        return Order(
+            order_id=self.order_id,
+            status=status,
+            ordered_by=self.ordered_by,
+            recipe_id=self.recipe_id,
+            time_of_order=self.time_of_order,
+        )
 
 
 @dataclass
@@ -152,9 +169,11 @@ class CocktailBarState:
             None,
         )
         if location is None:
-            logging.error("registered pour for non-existent slot")
+            logging.error(f"registered pour for non-existent slot {poured}")
         else:
-            self.slots[location].available_amount_in_ml -= poured.amount_in_ml
+            self.slots[location] = self.slots[location].pour(
+                poured.amount_in_ml
+            )  # .available_amount_in_ml -= poured.amount_in_ml
 
     def handle_order_placed(
         self, order_placed: OrderPlacedEvent, time_of_event: datetime.datetime
@@ -173,12 +192,21 @@ class CocktailBarState:
 
     def handle_order_status_change(self, order_id, new_state: OrderStatus):
         if order_id in self.orders:
-            self.orders[order_id].status = new_state
+            self.orders[order_id] = self.orders[order_id].update_status(new_state)
         else:
             logging.warning(
                 (f"tried to mark nonexisting order {order_id=} {new_state=}")
             )
         self.order_queue = tuple(id_ for id_ in self.order_queue if id_ != order_id)
+
+    def handle_order_enqueued(self, order_id):
+        if order_id in self.orders:
+            self.orders[order_id] = self.orders[order_id].update_status(
+                OrderStatus.enqueued
+            )
+        else:
+            logging.warning((f"tried to mark nonexisting order {order_id=} enqueued"))
+        self.order_queue = self.order_queue + (order_id,)
 
     @staticmethod
     def apply_events(
@@ -191,6 +219,7 @@ class CocktailBarState:
             )
         state = initial_state
         for time_of_event, event in events:
+            print(f"applying event {event}")  # TODO remove. this will spam
             match event:
                 case SlotRefilledEvent():
                     state.handle_refilled(event)
@@ -199,15 +228,22 @@ class CocktailBarState:
                 case OrderPlacedEvent():
                     state.handle_order_placed(event, time_of_event)
                 case OrderEnqueuedEvent(order_id=order_id):
-                    state.handle_order_status_change(order_id, OrderStatus.enqueued)
+                    # state.handle_order_status_change(order_id, OrderStatus.enqueued)
+                    state.handle_order_enqueued(order_id)
                 case OrderFulfilledEvent(order_id=order_id):
                     state.handle_order_status_change(order_id, OrderStatus.fulfilled)
+                case OrderExecutingEvent(order_id=order_id):
+                    state.handle_order_status_change(order_id, OrderStatus.executing)
                 case OrderCancelledEvent(order_id=order_id):
                     state.handle_order_status_change(order_id, OrderStatus.cancelled)
                 case RecipeCreatedEvent(recipe=recipe, creator_user_id=_user_id):
                     state.recipes[recipe.recipe_id] = recipe
                 case QueuePurgedEvent():
                     state.order_queue = []
+                case _:
+                    logging.error(f"unhandled event {event}")
+            print(f"new slots: {state.slots}")
+            print(f"new queue: {state.order_queue}")
         return state
 
     def json_snapshot(self) -> any:

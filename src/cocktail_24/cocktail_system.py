@@ -5,9 +5,7 @@ from enum import Enum
 from itertools import groupby
 from typing import Iterable, Generator
 
-from cocktail_24.cocktail.cocktail_recipes import CocktailRecipe
 from cocktail_24.cocktail_robo import (
-    RecipeCocktailPlannerFactory,
     CocktailRobotPumpTask,
     CocktailPosition,
     CocktailRobotTask,
@@ -63,6 +61,13 @@ class CocktailSystemStatus(Enum):
 class CocktailSystemPlan:
     plan_uuid: uuid.uuid4()
     steps: tuple[CocktailRobotTask, ...]
+
+    def prettyprint(self) -> str:
+        res = f"Plan {self.plan_uuid}\n"
+        step_strings = []
+        for i, step in enumerate(self.steps):
+            step_strings.append(f"step {i:03n}:{step}")
+        return res + "\n".join(step_strings)
 
 
 @dataclass(frozen=True)
@@ -132,8 +137,8 @@ class CocktailSystem:
         self._plan_progress_: PlanProgress | None = None
         self._plan_execution_: Generator[None, None, None] | None = None
 
-    def get_progress(self) -> PlanProgress | None:
-        return self._plan_progress_
+    # def get_progress(self) -> PlanProgress | None:
+    #     return self._plan_progress_
 
     def gen_initialize(self):
         yield from _wrap_tcp_effect_(self._robot_.gen_initialize())
@@ -143,7 +148,11 @@ class CocktailSystem:
         assert self._state_ == CocktailSystemStatus.idle
         assert self._plan_execution_ is None
         self._state_ = CocktailSystemStatus.initializing_plan
+        self._plan_progress_ = PlanProgress(
+            plan=plan, queued_step_pos=-1, finished_step_pos=-1
+        )
         self._plan_execution_ = self.gen_execute_plan(plan)
+        return self._plan_progress_
 
     def get_state(self):
         # TODO: DANGER states of system,robot and pump are not "temporary consistent"
@@ -235,9 +244,6 @@ class CocktailSystem:
             )
 
     def gen_execute_plan(self, plan: CocktailSystemPlan):
-        self._plan_progress_ = PlanProgress(
-            plan=plan, queued_step_pos=-1, finished_step_pos=-1
-        )
         step_groups = groupby(
             enumerate(plan.steps),
             key=lambda tup: isinstance(tup[1], CocktailRobotPumpTask),

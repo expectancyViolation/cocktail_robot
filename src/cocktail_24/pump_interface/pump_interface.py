@@ -56,7 +56,7 @@ class PumpInterface:
     def update(self, current_time: float, robot_at_pump_spot: bool):
         match self.status:
             case PumpStatus.pumping:
-                print("pumping", self.status)
+                # print("pumping", self.status)
                 self._update_durations_(current_time)
                 if not robot_at_pump_spot:
                     self.status = PumpStatus.interrupted
