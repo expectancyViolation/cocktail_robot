@@ -149,25 +149,6 @@ def configure_initial_state():
     )
 
 
-def gen_run_robo(
-    cocktail_system: CocktailSystem, cocktail_management: CocktailManagement
-):
-
-    # TODO: system factory to allow reset?
-    yield from cocktail_system.gen_initialize()
-
-    # if initial_plan is not None:
-    #     cocktail_system.run_plan(initial_plan)
-
-    execution = cocktail_system.gen_run()
-    effect = next(execution)
-    while True:
-        send = yield effect
-        effect = execution.send(send)
-
-        cocktail_management.check_update()
-
-
 class FakeSerial:
 
     def write(self, data):

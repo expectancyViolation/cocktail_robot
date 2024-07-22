@@ -1,3 +1,4 @@
+import logging
 import uuid
 from collections import deque
 from dataclasses import dataclass
@@ -136,12 +137,13 @@ class CocktailSystem:
         self._events_ = []
         self._plan_progress_: PlanProgress | None = None
         self._plan_execution_: Generator[None, None, None] | None = None
+        self._stopped_ = False
 
     # def get_progress(self) -> PlanProgress | None:
     #     return self._plan_progress_
 
-    def gen_initialize(self):
-        yield from _wrap_tcp_effect_(self._robot_.gen_initialize())
+    def gen_initialize(self, connect: bool = True):
+        yield from _wrap_tcp_effect_(self._robot_.gen_initialize(connect=connect))
         yield from _wrap_tcp_effect_(self._robot_.gen_initialize_job())
 
     def run_plan(self, plan: CocktailSystemPlan):
@@ -166,7 +168,7 @@ class CocktailSystem:
         )
 
     def gen_run(self):
-        while True:
+        while not self._stopped_:
             yield from self.gen_handle_effects()
             if self._state_ == CocktailSystemStatus.idle:
                 pass
@@ -188,11 +190,17 @@ class CocktailSystem:
         self._pump_.update(self._current_time_, robot_is_at_pump)
         pump_msg = self._pump_.get_pump_msg()
         _pump_resp = yield PumpSendEffect(pump_msg)
+
+        # handle robot
         resp = yield self._robot_effect_
         assert isinstance(resp, CocktailRobotSendResponse)
-        self._robot_effect_ = CocktailRobotSendEffect(
-            self._robot_operation_.send(resp.resp)
-        )
+        try:
+            self._robot_effect_ = CocktailRobotSendEffect(
+                self._robot_operation_.send(resp.resp)
+            )
+        except StopIteration as e:
+            logging.warning("detected robot stop. stopping system")
+            self._stopped_ = True
 
     def check_finished_robo_tasks(self):
         # robot

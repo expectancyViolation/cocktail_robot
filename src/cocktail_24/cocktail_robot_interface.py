@@ -82,6 +82,10 @@ class CocktailRobot:
             None
         ] * RoboCallRingbuffer.RING_LEN
         self.next_execution: CocktailRobotTaskExecution | None = None
+        self._stopped_ = False
+
+    def signal_stop(self):
+        self._stopped_ = True
 
     def is_initialized(self) -> bool:
         return (self._ringbuffer_ is not None) and (self.robo_state is not None)
@@ -118,8 +122,9 @@ class CocktailRobot:
 
         return write_ok
 
-    def gen_initialize(self):
-        yield from self._interface_.gen_connect()
+    def gen_initialize(self, connect: bool = True):
+        if connect:
+            yield from self._interface_.gen_connect()
         self.robo_state = yield from self._gen_get_state_()
         self._ringbuffer_ = RoboCallRingbuffer(
             initial_read_pos=self.robo_state.ringbuffer_read_pos
@@ -158,7 +163,7 @@ class CocktailRobot:
         yield from self.gen_sync_state()
 
     def gen_operate(self) -> Generator[str, str, None]:
-        while True:
+        while not self._stopped_:
             yield from self.gen_sync_state()
 
             # check liveness. this is kinda slow, and stalls sync updates

@@ -12,6 +12,7 @@ from cocktail_24.cocktail.cocktail_bookkeeping import (
     Order,
     OrderFulfilledEvent,
     OrderExecutingEvent,
+    OrderAbortedEvent,
 )
 from cocktail_24.cocktail.cocktail_recipes import CocktailRecipe
 from cocktail_24.cocktail_system import (
@@ -54,6 +55,9 @@ class CocktailManagement:
         self._system_config_ = system_config
         self._active_order_: None | Order = None
 
+    def get_system(self):
+        return self._system_
+
     def check_progress(self, new_plan_progress: PlanProgress):
         # TODO: this is kinda bad: system should produce events?
         if new_plan_progress != self._old_progress_:
@@ -84,6 +88,16 @@ class CocktailManagement:
                 logging.warning(
                     f"None progress {new_plan_progress} {self._old_progress_}"
                 )
+
+    def abort(self):
+        if self._active_order_ is not None:
+            timed_events = [
+                EventOccurrence(
+                    event=OrderAbortedEvent(self._active_order_.order_id),
+                    timestamp=datetime.datetime.now(),
+                )
+            ]
+            self._persistence_.persist_events(timed_events)
 
     def check_update(self):
         new_system_state = self._system_.get_state()

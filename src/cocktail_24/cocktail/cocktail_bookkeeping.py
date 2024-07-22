@@ -67,6 +67,11 @@ class OrderCancelledEvent:
 
 
 @dataclass(frozen=True)
+class OrderAbortedEvent:
+    order_id: uuid.UUID
+
+
+@dataclass(frozen=True)
 class OrderEnqueuedEvent:
     order_id: uuid.UUID
 
@@ -92,14 +97,19 @@ class RecipeCreatedEvent:
     creator_user_id: UserId
 
 
-CocktailBarEvent = (
-    SlotRefilledEvent
-    | AmountPouredEvent
-    | OrderPlacedEvent
+OrderEvent = (
+    OrderPlacedEvent
     | OrderEnqueuedEvent
     | OrderExecutingEvent
     | OrderFulfilledEvent
     | OrderCancelledEvent
+    | OrderAbortedEvent
+)
+
+CocktailBarEvent = (
+    SlotRefilledEvent
+    | OrderEvent
+    | AmountPouredEvent
     | QueuePurgedEvent
     | RecipeCreatedEvent
 )
@@ -116,6 +126,7 @@ class OrderStatus(Enum):
     cancelled = "cancelled"
     fulfilled = "fulfilled"
     executing = "executing"
+    aborted = "aborted"
 
 
 @dataclass(frozen=True)
@@ -127,6 +138,8 @@ class Order:
     time_of_order: datetime.datetime
 
     def update_status(self, status: OrderStatus) -> "Order":
+        # TODO weird spot. remove
+        logging.warning(f"updated order status {self}")
         return Order(
             order_id=self.order_id,
             status=status,
@@ -236,6 +249,8 @@ class CocktailBarState:
                     state.handle_order_status_change(order_id, OrderStatus.executing)
                 case OrderCancelledEvent(order_id=order_id):
                     state.handle_order_status_change(order_id, OrderStatus.cancelled)
+                case OrderAbortedEvent(order_id=order_id):
+                    state.handle_order_status_change(order_id, OrderStatus.aborted)
                 case RecipeCreatedEvent(recipe=recipe, creator_user_id=_user_id):
                     state.recipes[recipe.recipe_id] = recipe
                 case QueuePurgedEvent():
