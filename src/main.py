@@ -65,9 +65,14 @@ def config_system() -> tuple[CocktailSystem, CocktailSystemPlan]:
 def gen_run_robo(cocktail_system, plan):
 
     print(f"plan is {plan}")
-
     yield from cocktail_system.gen_initialize()
-    yield from cocktail_system.gen_execute_plan(plan)
+
+    execution = cocktail_system.gen_execute_plan(plan)
+    effect = next(execution)
+    while True:
+        send = yield effect
+        effect = next(execution)
+
 
 
 class FakeSerial:

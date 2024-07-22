@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from cocktail_24.cocktail.cocktail_bookkeeping import OrderId
 from cocktail_24.cocktail_runtime import async_cocktail_runtime
 from main import gen_run_robo, config_system
 
@@ -25,6 +26,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
-@app.get("/predict")
-async def predict(x: float):
+@app.get("/order/{order_id}")
+async def get_order_details(order_id: OrderId):
     return str(system._robot_.robo_state)
