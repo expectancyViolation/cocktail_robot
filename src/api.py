@@ -12,7 +12,7 @@ from cocktail_24.cocktail.cocktail_api import (
     CocktailBarStatePersistence,
 )
 from cocktail_24.cocktail.cocktail_bookkeeping import OrderId
-from cocktail_24.cocktail_management import CocktailManagement
+from cocktail_24.cocktail_management import CocktailManagement, FakeFulfillmentSystem
 from cocktail_24.cocktail_runtime import async_cocktail_runtime
 from main import (
     configure_system,
@@ -20,6 +20,8 @@ from main import (
     configure_initial_state,
 )
 
+
+FAKE_SYSTEM = False
 
 logging.basicConfig(
     format="%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s",
@@ -35,22 +37,31 @@ class Cocktail:
     management: CocktailManagement
 
 
-def get_management(persistence):
+def get_management(persistence, fake_system: bool = False):
     system, system_config = configure_system()
+    if fake_system:
+        system = FakeFulfillmentSystem()
     return configure_management(system, system_config, persistence=persistence)
 
 
-def get_cocktail():
+# management needs to be driven
+async def update_fake_management():
+    assert FAKE_SYSTEM
+    while True:
+        COCKTAIL.management.check_update()
+        await asyncio.sleep(0.0001)
+
+
+def get_cocktail(fake_system: bool = False):
     persistence = InMemoryCocktailBarStatePersistence(
         initial_state=configure_initial_state()
     )
     cock_api = CocktailApi(state_persistence=persistence)
     return Cocktail(
-        persistence=persistence, api=cock_api, management=get_management(persistence)
+        persistence=persistence,
+        api=cock_api,
+        management=get_management(persistence, fake_system=fake_system),
     )
-
-
-COCKTAIL = get_cocktail()
 
 
 def gen_run_robo():
@@ -75,8 +86,11 @@ def gen_run_robo():
             COCKTAIL.management = get_management(COCKTAIL.persistence)
 
 
+COCKTAIL = get_cocktail(fake_system=FAKE_SYSTEM)
+
+
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     global runtime_ok
 
     # TODO move this into runtime
@@ -88,11 +102,14 @@ async def lifespan(app: FastAPI):
             logging.exception(e)
             runtime_ok = False
 
-    rt = async_cocktail_runtime(cocktail_gen=gen_run_robo())
-
-    t = asyncio.create_task(log_exceptions(rt))
-    runtime_ok = True
-    logging.warning("started runtime task")
+    if not FAKE_SYSTEM:
+        rt = async_cocktail_runtime(cocktail_gen=gen_run_robo())
+        t = asyncio.create_task(log_exceptions(rt))
+        runtime_ok = True
+        logging.warning("started runtime task")
+    else:
+        t = asyncio.create_task(log_exceptions(update_fake_management()))
+        logging.warning("not starting runtime. faking!")
     yield
     t.cancel()
 

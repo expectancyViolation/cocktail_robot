@@ -4,15 +4,11 @@ import uuid
 from enum import Enum
 from typing import NewType, Iterable
 
-# from pydantic import RootModel
-# from pydantic.dataclasses import dataclass
 from dataclasses import dataclass
 
 from cocktail_24.cocktail.cocktail_recipes import IngredientId, CocktailRecipe, RecipeId
 from cocktail_24.recipe_samples import TypicalIngredients, SampleRecipes
 
-
-# from dataclasses import dataclass
 
 OrderId = NewType("OrderId", uuid.UUID)
 UserId = NewType("UserId", uuid.UUID)

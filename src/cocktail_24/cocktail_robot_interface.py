@@ -33,7 +33,7 @@ class CocktailRobotConfig:
 
 
 @dataclass(frozen=True)
-class CocktailRoboState:
+class CocktailRobotState:
     position: CocktailPosition
     cup_placed: bool
     cup_id: int
@@ -42,10 +42,10 @@ class CocktailRoboState:
     shaker_empty: bool
 
     @staticmethod
-    def parse_from_bytes(data: bytes) -> "CocktailRoboState":
+    def parse_from_bytes(data: bytes) -> "CocktailRobotState":
         assert len(data) == CocktailRobotConfig.N_OUPUT_BYTES
         position, ringbuffer_read_pos, io_byte, cup_id, _ = data
-        return CocktailRoboState(
+        return CocktailRobotState(
             position=CocktailPosition(position),
             ringbuffer_read_pos=ringbuffer_read_pos,
             cup_placed=(io_byte & 1) > 0,
@@ -77,7 +77,7 @@ class CocktailRobot:
         self._interface_ = tcp_interface
         self._ops_ = operations
         self._ringbuffer_: RoboCallRingbuffer | None = None
-        self.robo_state: CocktailRoboState | None = None
+        self.robo_state: CocktailRobotState | None = None
         self._robo_tasks_: list[None | CocktailRobotTaskExecution] = [
             None
         ] * RoboCallRingbuffer.RING_LEN
@@ -90,12 +90,12 @@ class CocktailRobot:
     def is_initialized(self) -> bool:
         return (self._ringbuffer_ is not None) and (self.robo_state is not None)
 
-    def _gen_get_state_(self) -> Generator[str, str, CocktailRoboState]:
+    def _gen_get_state_(self) -> Generator[str, str, CocktailRobotState]:
         res = yield from self._interface_.gen_read_relays(
             CocktailRobotConfig.output_relays
         )
         # print(f"got bytes {res}")
-        state = CocktailRoboState.parse_from_bytes(res)
+        state = CocktailRobotState.parse_from_bytes(res)
         return state
 
     def _gen_write_state_(self, readback: bool = False) -> Generator[str, str, bool]:

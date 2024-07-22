@@ -14,7 +14,7 @@ from cocktail_24.cocktail_robo import (
 from cocktail_24.cocktail_robot_interface import (
     CocktailRobot,
     CocktailRobotTaskExecution,
-    CocktailRoboState,
+    CocktailRobotState,
 )
 from cocktail_24.pump_interface.pump_interface import PumpInterface, PumpStatus
 
@@ -101,8 +101,8 @@ class PlanProgress:
 @dataclass(frozen=True)
 class CocktailSystemState:
     status: CocktailSystemStatus
-    plan_progress: PlanProgress
-    robot_state: CocktailRoboState
+    plan_progress: PlanProgress | None
+    robot_state: CocktailRobotState
     pump_status: PumpStatus
 
 

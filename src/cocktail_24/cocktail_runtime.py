@@ -73,7 +73,9 @@ from serial_asyncio import open_serial_connection
 
 async def async_cocktail_runtime(cocktail_gen):
     real_pump = True
-    robo_reader, robo_writer = await asyncio.open_connection("192.168.255.1", 80)
+    real_robo = True
+    if real_robo:
+        robo_reader, robo_writer = await asyncio.open_connection("192.168.255.1", 80)
     if real_pump:
         reader, writer = await open_serial_connection(
             url="/dev/ttyUSB0", baudrate=115200
