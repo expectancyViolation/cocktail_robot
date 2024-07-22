@@ -1,4 +1,5 @@
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import NewType
 
@@ -6,9 +7,14 @@ IngredientId = NewType("IngredientId", str)
 
 
 @dataclass(frozen=True)
-class CocktailRecipeAddIngredient:
+class IngredientAmount:
     ingredient: IngredientId
     amount_in_ml: float
+
+
+@dataclass(frozen=True)
+class CocktailRecipeAddIngredients:
+    to_add: tuple[IngredientAmount, ...]
 
 
 @dataclass(frozen=True)
@@ -16,13 +22,13 @@ class CocktailRecipeShake:
     shake_duration_in_s: float
 
 
-CocktailRecipeInstruction = CocktailRecipeShake | CocktailRecipeAddIngredient
+CocktailRecipeStepInstruction = CocktailRecipeShake | CocktailRecipeAddIngredients
 
 
 @dataclass(frozen=True)
 class CocktailRecipeStep:
     step_title: str
-    instructions: set[CocktailRecipeInstruction]
+    instruction: CocktailRecipeStepInstruction
 
 
 RecipeId = NewType("RecipeId", uuid.UUID)

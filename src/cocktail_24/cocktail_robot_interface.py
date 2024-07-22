@@ -8,13 +8,13 @@ from typing import Generator, Type
 from cocktail_24.pump_interface.pump_interface import PumpInterface
 from cocktail_24.cocktail_robo import (
     CocktailPosition,
-    CocktailPlanner,
     CocktailRobotTask,
     CocktailRobotMoveTask,
     CocktailRobotShakeTask,
     CocktailRobotZapfTask,
     CocktailRobotPumpTask,
     CocktailRobotPourTask,
+    CocktailRobotCleanTask,
 )
 from cocktail_24.robot_interface.robocall_ringbuffer import RoboCallRingbuffer
 from cocktail_24.robot_interface.robot_interface import (
@@ -33,7 +33,7 @@ class CocktailRobotConfig:
 
 
 @dataclass(frozen=True)
-class CocktailRoboState:
+class CocktailRobotState:
     position: CocktailPosition
     cup_placed: bool
     cup_id: int
@@ -42,10 +42,10 @@ class CocktailRoboState:
     shaker_empty: bool
 
     @staticmethod
-    def parse_from_bytes(data: bytes) -> "CocktailRoboState":
+    def parse_from_bytes(data: bytes) -> "CocktailRobotState":
         assert len(data) == CocktailRobotConfig.N_OUPUT_BYTES
         position, ringbuffer_read_pos, io_byte, cup_id, _ = data
-        return CocktailRoboState(
+        return CocktailRobotState(
             position=CocktailPosition(position),
             ringbuffer_read_pos=ringbuffer_read_pos,
             cup_placed=(io_byte & 1) > 0,
@@ -60,6 +60,7 @@ class CocktailTaskOpcodes(Enum):
     zapf = 2
     shake = 3
     pour = 4
+    clean = 5
 
 
 @dataclass(frozen=True)
@@ -76,22 +77,25 @@ class CocktailRobot:
         self._interface_ = tcp_interface
         self._ops_ = operations
         self._ringbuffer_: RoboCallRingbuffer | None = None
-        self.robo_state: CocktailRoboState | None = None
+        self.robo_state: CocktailRobotState | None = None
         self._robo_tasks_: list[None | CocktailRobotTaskExecution] = [
             None
         ] * RoboCallRingbuffer.RING_LEN
         self.next_execution: CocktailRobotTaskExecution | None = None
+        self._stopped_ = False
+
+    def signal_stop(self):
+        self._stopped_ = True
 
     def is_initialized(self) -> bool:
         return (self._ringbuffer_ is not None) and (self.robo_state is not None)
 
-    def _gen_get_state_(self) -> Generator[str, str, CocktailRoboState]:
+    def _gen_get_state_(self) -> Generator[str, str, CocktailRobotState]:
         res = yield from self._interface_.gen_read_relays(
             CocktailRobotConfig.output_relays
         )
         # print(f"got bytes {res}")
-        state = CocktailRoboState.parse_from_bytes(res)
-        print(f"parsed state{state}")
+        state = CocktailRobotState.parse_from_bytes(res)
         return state
 
     def _gen_write_state_(self, readback: bool = False) -> Generator[str, str, bool]:
@@ -118,8 +122,9 @@ class CocktailRobot:
 
         return write_ok
 
-    def gen_initialize(self):
-        yield from self._interface_.gen_connect()
+    def gen_initialize(self, connect: bool = True):
+        if connect:
+            yield from self._interface_.gen_connect()
         self.robo_state = yield from self._gen_get_state_()
         self._ringbuffer_ = RoboCallRingbuffer(
             initial_read_pos=self.robo_state.ringbuffer_read_pos
@@ -158,7 +163,7 @@ class CocktailRobot:
         yield from self.gen_sync_state()
 
     def gen_operate(self) -> Generator[str, str, None]:
-        while True:
+        while not self._stopped_:
             yield from self.gen_sync_state()
 
             # check liveness. this is kinda slow, and stalls sync updates
@@ -187,6 +192,8 @@ class CocktailRobot:
                 return bytes([CocktailTaskOpcodes.zapf.value, slot, 0, 0])
             case CocktailRobotPourTask():
                 return bytes([CocktailTaskOpcodes.pour.value, 0, 0, 0])
+            case CocktailRobotCleanTask():
+                return bytes([CocktailTaskOpcodes.clean.value, 0, 0, 0])
             case _:
                 raise Exception(f"unknown task encoding {task=}")
 
