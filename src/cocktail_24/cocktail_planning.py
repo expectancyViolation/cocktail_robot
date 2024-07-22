@@ -4,17 +4,29 @@ import random
 from typing import Sequence
 
 from cocktail_24.cocktail.cocktail_bookkeeping import CocktailZapfStationConfig
-from cocktail_24.cocktail.cocktail_recipes import CocktailRecipe, CocktailRecipeAddIngredient
-from cocktail_24.cocktail_robo import CocktailPlanner, ALLOWED_COCKTAIL_MOVES, CocktailPosition, \
-    CocktailRobotMoveTask, CocktailRobotZapfTask,  RecipeCocktailPlannerFactory, \
-    CocktailRobotPumpTask, CocktailRobotPourTask
+from cocktail_24.cocktail.cocktail_recipes import (
+    CocktailRecipe,
+    CocktailRecipeAddIngredient,
+)
+from cocktail_24.cocktail_robo import (
+    CocktailPlanner,
+    ALLOWED_COCKTAIL_MOVES,
+    CocktailPosition,
+    CocktailRobotMoveTask,
+    CocktailRobotZapfTask,
+    RecipeCocktailPlannerFactory,
+    CocktailRobotPumpTask,
+    CocktailRobotPourTask,
+)
 from cocktail_24.cocktail_robot_interface import CocktailRoboState
 
 
 class RandomCocktailPlanner(CocktailPlanner):
 
     def gen_plan_pour_cocktail(self):
-        cocktail_nbs: defaultdict[CocktailPosition, set[CocktailPosition]] = defaultdict(lambda: set())
+        cocktail_nbs: defaultdict[CocktailPosition, set[CocktailPosition]] = (
+            defaultdict(lambda: set())
+        )
         for x, y in ALLOWED_COCKTAIL_MOVES:
             if y != CocktailPosition.zapf:
                 continue
@@ -47,8 +59,11 @@ class DefaultRecipeCocktailPlanner(CocktailPlanner):
     def _assign_zapf_slots_(self, ingredients: Sequence[CocktailRecipeAddIngredient]):
         to_do = []
         for add_ingr in ingredients:
-            slot = next(slot_index for slot_index, slot_ingr in self._zapf_config_.zapf_slots.items() if
-                        slot_ingr == add_ingr.ingredient)
+            slot = next(
+                slot_index
+                for slot_index, slot_ingr in self._zapf_config_.zapf_slots.items()
+                if slot_ingr == add_ingr.ingredient
+            )
             amount = math.ceil(add_ingr.amount_in_ml / self._zapf_config_.ml_per_zapf)
             to_do.append((slot, amount))
         return to_do
@@ -92,4 +107,6 @@ class DefaultRecipeCocktailPlannerFactory(RecipeCocktailPlannerFactory):
         self._zapf_config_ = zapf_config
 
     def get_planner(self, recipe: CocktailRecipe) -> CocktailPlanner:
-        return DefaultRecipeCocktailPlanner(zapf_config=self._zapf_config_, recipe=recipe)
+        return DefaultRecipeCocktailPlanner(
+            zapf_config=self._zapf_config_, recipe=recipe
+        )

@@ -7,6 +7,9 @@ authors = [
 ]
 dependencies = [
     "pyserial>=3.5",
+    "pydantic>=2.8.2",
+    "pyserial-asyncio>=0.6",
+    "fastapi>=0.111.1",
 ]
 requires-python = ">=3.12"
 readme = "README.md"
@@ -23,6 +26,7 @@ distribution = true
 [tool.pdm.dev-dependencies]
 dev = [
     "pytest>=8.2.2",
+    "black>=24.4.2",
 ]
 
 [tool.pdm.scripts]

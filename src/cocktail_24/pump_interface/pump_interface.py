@@ -17,8 +17,7 @@ class PumpSetup:
 
 class PumpSerialEncoder(Protocol):
 
-    def encode_slots(self, slots_on: list[bool]) -> bytes:
-        ...
+    def encode_slots(self, slots_on: list[bool]) -> bytes: ...
 
 
 class DefaultPumpSerialEncoder(PumpSerialEncoder):
@@ -41,7 +40,7 @@ class PumpInterface:
         self.pump_durations = [-1.0] * PumpSetup.NUM_PUMPS
         self.status: PumpStatus = PumpStatus.ready
         self._encoder_ = encoder
-        self.previous_time = .0
+        self.previous_time = 0.0
 
     def _update_durations_(self, current_time: float):
         dt = max(0.0, current_time - self.previous_time)

@@ -6,9 +6,13 @@ from cocktail_24.recipe_samples import TypicalIngredients, SampleRecipes
 def get_the_vomit_planner_factory():
     zapf_config = CocktailZapfConfig(
         ml_per_zapf=20,
-        zapf_slots={0: TypicalIngredients.gin, 4: TypicalIngredients.vodka, 7: TypicalIngredients.tequila,
-                    11: TypicalIngredients.whiskey},
-        cup_limit_in_ml=250
+        zapf_slots={
+            0: TypicalIngredients.gin,
+            4: TypicalIngredients.vodka,
+            7: TypicalIngredients.tequila,
+            11: TypicalIngredients.whiskey,
+        },
+        cup_limit_in_ml=250,
     )
 
     the_vomit = SampleRecipes.the_vomit()

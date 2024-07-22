@@ -1,5 +1,12 @@
-from cocktail_24.cocktail.cocktail_recipes import IngredientId, CocktailRecipe, CocktailRecipeStep, \
-    CocktailRecipeAddIngredient
+import uuid
+
+from cocktail_24.cocktail.cocktail_recipes import (
+    IngredientId,
+    CocktailRecipe,
+    CocktailRecipeStep,
+    CocktailRecipeAddIngredient,
+    RecipeId,
+)
 
 
 class TypicalIngredients:
@@ -14,6 +21,7 @@ class SampleRecipes:
     @staticmethod
     def the_vomit() -> CocktailRecipe:
         return CocktailRecipe(
+            recipe_id=RecipeId(uuid.uuid4()),
             title="the_vomit",
             steps=(
                 # CocktailRecipeStep(
@@ -26,9 +34,10 @@ class SampleRecipes:
                 CocktailRecipeStep(
                     step_title="add some tequila",
                     instructions={
-                        CocktailRecipeAddIngredient(ingredient=TypicalIngredients.tequila, amount_in_ml=100)
-                    }
+                        CocktailRecipeAddIngredient(
+                            ingredient=TypicalIngredients.tequila, amount_in_ml=100
+                        )
+                    },
                 ),
-
-            )
+            ),
         )

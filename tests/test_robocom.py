@@ -20,5 +20,3 @@ def robo_socket():
 #       - on error/reset we have to resync whole state
 #           - robot position
 #           - robot bottle content
-
-

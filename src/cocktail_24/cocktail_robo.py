@@ -19,7 +19,7 @@ ALLOWED_COCKTAIL_MOVES = (
     (CocktailPosition.home, CocktailPosition.shake),
     (CocktailPosition.home, CocktailPosition.clean),
     (CocktailPosition.home, CocktailPosition.pump),
-    (CocktailPosition.shake, CocktailPosition.pour)
+    (CocktailPosition.shake, CocktailPosition.pour),
 )
 
 
@@ -39,8 +39,7 @@ class CocktailRobotShakeTask:
 
 
 @dataclass(frozen=True)
-class CocktailRobotPourTask:
-    ...
+class CocktailRobotPourTask: ...
 
 
 # pumping can be parallel
@@ -49,17 +48,22 @@ class CocktailRobotPumpTask:
     durations_in_s: list[float]  # slot to time in s
 
 
-CocktailRobotTask = CocktailRobotMoveTask | CocktailRobotShakeTask | CocktailRobotZapfTask | CocktailRobotPumpTask | CocktailRobotPourTask
-
+CocktailRobotTask = (
+    CocktailRobotMoveTask
+    | CocktailRobotShakeTask
+    | CocktailRobotZapfTask
+    | CocktailRobotPumpTask
+    | CocktailRobotPourTask
+)
 
 
 class CocktailPlanner(Protocol):
 
-    def gen_plan_pour_cocktail(self) -> Generator[CocktailRobotTask | None, None, bool]:
-        ...
+    def gen_plan_pour_cocktail(
+        self,
+    ) -> Generator[CocktailRobotTask | None, None, bool]: ...
 
 
 class RecipeCocktailPlannerFactory(Protocol):
 
-    def get_planner(self, recipe: CocktailRecipe) -> CocktailPlanner:
-        ...
+    def get_planner(self, recipe: CocktailRecipe) -> CocktailPlanner: ...

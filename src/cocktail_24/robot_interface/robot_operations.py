@@ -1,6 +1,10 @@
 from typing import Generator, Type
 
-from cocktail_24.robot_interface.robot_interface import RobotOperations, RoboTcpInterface, RoboTcpCommandResult
+from cocktail_24.robot_interface.robot_interface import (
+    RobotOperations,
+    RoboTcpInterface,
+    RoboTcpCommandResult,
+)
 
 
 class DefaultRobotOperations(RobotOperations):
@@ -8,7 +12,9 @@ class DefaultRobotOperations(RobotOperations):
     def __init__(self, tcp_interface: Type[RoboTcpInterface]):
         self._interface_ = tcp_interface
 
-    def gen_start_job(self, job_name: str, check_servo=True) -> Generator[str, str, RoboTcpCommandResult]:
+    def gen_start_job(
+        self, job_name: str, check_servo=True
+    ) -> Generator[str, str, RoboTcpCommandResult]:
         # status = yield from self._interface_.gen_read_status()
         # TODO: remove condition to avoid races?
         # print(f"servo status {status}")
@@ -24,8 +30,9 @@ class DefaultRobotOperations(RobotOperations):
 
         return start_ok
 
-    def gen_run_job_once(self, job_name: str | None, wait_safety: bool = True) -> Generator[
-        str, str, RoboTcpCommandResult]:
+    def gen_run_job_once(
+        self, job_name: str | None, wait_safety: bool = True
+    ) -> Generator[str, str, RoboTcpCommandResult]:
         status = yield from self._interface_.gen_read_status()
         if status.running:
             print("cannot start still running")
@@ -46,7 +53,9 @@ class DefaultRobotOperations(RobotOperations):
                 print(f"final status :{status=}")
                 return RoboTcpCommandResult.ok
 
-    def gen_run_job_until_completion(self, job_name: str) -> Generator[str, str, RoboTcpCommandResult]:
+    def gen_run_job_until_completion(
+        self, job_name: str
+    ) -> Generator[str, str, RoboTcpCommandResult]:
         initial_status = yield from self._interface_.gen_read_status()
         initial_success_count = initial_status.success_count
         res = yield from self.gen_run_job_once(job_name)

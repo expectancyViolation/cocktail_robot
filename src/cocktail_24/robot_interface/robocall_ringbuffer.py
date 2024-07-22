@@ -6,7 +6,10 @@ class RoboCallRingbuffer:
 
     def __init__(self, initial_read_pos: int = 0):
         self.write_pos = (initial_read_pos + 1) % RoboCallRingbuffer.RING_LEN
-        self.buffer = [bytes([0] * RoboCallRingbuffer.ARG_CNT) for _ in range(RoboCallRingbuffer.RING_LEN)]
+        self.buffer = [
+            bytes([0] * RoboCallRingbuffer.ARG_CNT)
+            for _ in range(RoboCallRingbuffer.RING_LEN)
+        ]
 
     def try_feed(self, args: bytes, read_pos: int) -> bool:
         read_pos %= RoboCallRingbuffer.RING_LEN

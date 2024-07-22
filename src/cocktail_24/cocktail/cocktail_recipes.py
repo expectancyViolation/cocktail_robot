@@ -1,7 +1,8 @@
+import uuid
 from dataclasses import dataclass
 from typing import NewType
 
-IngredientId = NewType('IngredientId', str)
+IngredientId = NewType("IngredientId", str)
 
 
 @dataclass(frozen=True)
@@ -24,7 +25,11 @@ class CocktailRecipeStep:
     instructions: set[CocktailRecipeInstruction]
 
 
+RecipeId = NewType("RecipeId", uuid.UUID)
+
+
 @dataclass(frozen=True)
 class CocktailRecipe:
+    recipe_id: RecipeId
     title: str
     steps: tuple[CocktailRecipeStep, ...]
