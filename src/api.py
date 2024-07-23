@@ -21,7 +21,12 @@ from cocktail_24.cocktail_robot_interface import CocktailRobotState
 from cocktail_24.cocktail_runtime import async_cocktail_runtime
 from cocktail_24.cocktail_system import CocktailSystemStatus
 from cocktail_24.pump_interface.pump_interface import PumpStatus
-from configure import configure_system, configure_management, configure_system_config
+from configure import (
+    configure_system,
+    configure_management,
+    configure_system_config,
+    configure_initial_state,
+)
 
 FAKE_SYSTEM = True
 
@@ -60,6 +65,8 @@ def get_cocktail(fake_system: bool = False):
     #     initial_state=configure_initial_state()
     # )
     persistence = SqliteCocktailBarStatePersistence("/tmp/cocktails_2.db")
+    initial_state_events = configure_initial_state()
+    persistence.persist_events(initial_state_events)
     cock_api = CocktailApi(state_persistence=persistence)
     return Cocktail(
         persistence=persistence,
@@ -95,21 +102,17 @@ COCKTAIL = get_cocktail(fake_system=FAKE_SYSTEM)
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    global runtime_ok
 
     # TODO move this into runtime
     async def log_exceptions(awaitable):
-        global runtime_ok
         try:
             return await awaitable
         except Exception as e:
             logging.exception(e)
-            runtime_ok = False
 
     if not FAKE_SYSTEM:
         rt = async_cocktail_runtime(cocktail_gen=gen_run_robo())
         t = asyncio.create_task(log_exceptions(rt))
-        runtime_ok = True
         logging.warning("started runtime task")
     else:
         t = asyncio.create_task(log_exceptions(update_fake_management()))
@@ -162,8 +165,8 @@ async def create_recipe(recipe: CocktailRecipe):
 
 
 @app.post("/place_order")
-async def place_order(recipe_id: RecipeId):
-    COCKTAIL.api.place_order(recipe_id)
+async def place_order(recipe_id: RecipeId, order_id: OrderId):
+    COCKTAIL.api.place_order(recipe_id, order_id=order_id)
 
 
 @app.post("/enqueue_order")
@@ -174,6 +177,11 @@ async def enqueue_order(order_id: OrderId):
 @app.post("/cancel_order")
 async def cancel_order(order_id: OrderId):
     COCKTAIL.api.cancel_order(order_id)
+
+
+@app.get("/queue")
+async def get_queue() -> List[OrderId]:
+    return [*COCKTAIL.persistence.get_current_state().order_queue]
 
 
 @dataclass
@@ -197,7 +205,7 @@ async def get_system_status() -> CocktailSystemState:
     return CocktailSystemState(
         plan_progress=(
             PlanProgress(
-                plan_id=(state.plan_progress.plan.plan_id),
+                plan_id=state.plan_progress.plan.plan_id,
                 queued_step_pos=state.plan_progress.queued_step_pos,
                 finished_step_pos=state.plan_progress.finished_step_pos,
             )

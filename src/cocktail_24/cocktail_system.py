@@ -45,7 +45,7 @@ class CocktailRobotSendEffect:
 
 @dataclass(frozen=True)
 class CocktailRobotSendResponse:
-    resp: str
+    resp: str|None
 
 
 CocktailSystemEffect = CocktailRobotSendEffect | GetTimeEffect | PumpSendEffect
@@ -205,7 +205,7 @@ class CocktailSystem:
             self._robot_effect_ = CocktailRobotSendEffect(
                 self._robot_operation_.send(resp.resp)
             )
-        except StopIteration as e:
+        except StopIteration:
             logging.warning("detected robot stop. stopping system")
             self._stopped_ = True
 

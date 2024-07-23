@@ -294,7 +294,7 @@ class RobotRPCCommand:
 class RobotOperations(Protocol):
 
     def gen_start_job(
-        self, job_name: str
+        self, job_name: str | None
     ) -> Generator[str, str, RoboTcpCommandResult]: ...
 
     def gen_run_job_once(

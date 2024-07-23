@@ -44,6 +44,7 @@ class FakeFulfillmentSystem(CocktailManagementCocktailSystem):
 
     def run_plan(self, plan: CocktailSystemPlan) -> PlanProgress:
         self.progress = PlanProgress(plan, queued_step_pos=-1, finished_step_pos=-1)
+        return self.progress
 
     def _step_progress_(self):
         if self.progress is None:
@@ -86,7 +87,6 @@ class CocktailManagement:
         self._persistence_ = cocktail_persistence
         self._system_ = cocktail_system
         self._planning_ = planning
-        # self._old_system_state_ = cocktail_system.get_state()
         self._old_progress_: None | PlanProgress = None
         self._system_config_ = system_config
         self._active_order_: None | Order = None

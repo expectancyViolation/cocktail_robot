@@ -1,9 +1,7 @@
-import uuid
 from itertools import product
 
 from pydantic import RootModel
 
-from cocktail_24.cocktail.cocktail_bookkeeping import OrderFulfilledEvent, OrderId
 from cocktail_24.cocktail_robo import CocktailPosition, ALLOWED_COCKTAIL_MOVES
 
 
@@ -55,7 +53,3 @@ def test_bfs():
         for el in get_shortest_path(ALLOWED_COCKTAIL_MOVES, p1, p2):
             print(el)
         print("----")
-
-
-def test_pydantic_dataclass_to_json():
-    event = OrderFulfilledEvent(order_id=OrderId(uuid.uuid4()))

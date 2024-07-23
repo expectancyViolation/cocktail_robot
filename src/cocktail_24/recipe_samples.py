@@ -7,6 +7,7 @@ from cocktail_24.cocktail.cocktail_recipes import (
     RecipeId,
     IngredientAmount,
     CocktailRecipeAddIngredients,
+    IngredientAmounts,
 )
 
 
@@ -28,26 +29,33 @@ class SampleRecipes:
                 CocktailRecipeStep(
                     step_title="pour whiskey and gin",
                     instruction=CocktailRecipeAddIngredients(
-                        (
-                            IngredientAmount(
-                                ingredient=TypicalIngredients.whiskey, amount_in_ml=40
-                            ),
-                            IngredientAmount(
-                                ingredient=TypicalIngredients.gin, amount_in_ml=40
-                            ),
+                        IngredientAmounts(
+                            amounts=(
+                                IngredientAmount(
+                                    ingredient=TypicalIngredients.whiskey,
+                                    amount_in_ml=40,
+                                ),
+                                IngredientAmount(
+                                    ingredient=TypicalIngredients.gin, amount_in_ml=40
+                                ),
+                            )
                         )
                     ),
                 ),
                 CocktailRecipeStep(
                     step_title="add tequila and vodka",
                     instruction=CocktailRecipeAddIngredients(
-                        (
-                            IngredientAmount(
-                                ingredient=TypicalIngredients.tequila, amount_in_ml=120
-                            ),
-                            IngredientAmount(
-                                ingredient=TypicalIngredients.vodka, amount_in_ml=120
-                            ),
+                        IngredientAmounts(
+                            amounts=(
+                                IngredientAmount(
+                                    ingredient=TypicalIngredients.tequila,
+                                    amount_in_ml=120,
+                                ),
+                                IngredientAmount(
+                                    ingredient=TypicalIngredients.vodka,
+                                    amount_in_ml=120,
+                                ),
+                            )
                         )
                     ),
                 ),

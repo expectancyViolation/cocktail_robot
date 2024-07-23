@@ -1,9 +1,5 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Protocol, Generator, Sequence
-
-from cocktail_24.cocktail.cocktail_bookkeeping import SlotStatus
-from cocktail_24.cocktail.cocktail_recipes import CocktailRecipe
 
 
 class CocktailPosition(Enum):

@@ -1,20 +1,15 @@
-import logging
-import time
-import uuid
-
 # from dataclasses import dataclass
-from pydantic.dataclasses import dataclass
 from enum import Enum
 from typing import Generator, Type
 
-from cocktail_24.pump_interface.pump_interface import PumpInterface
+from pydantic.dataclasses import dataclass
+
 from cocktail_24.cocktail_robo import (
     CocktailPosition,
     CocktailRobotTask,
     CocktailRobotMoveTask,
     CocktailRobotShakeTask,
     CocktailRobotZapfTask,
-    CocktailRobotPumpTask,
     CocktailRobotPourTask,
     CocktailRobotCleanTask,
 )

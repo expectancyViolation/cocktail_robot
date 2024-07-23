@@ -36,7 +36,7 @@ class IngredientAmounts:
                         IngredientAmount(ingredient=ing, amount_in_ml=amount)
                         for ing, amount in lookup.items()
                     ),
-                    key=lambda ia: ia.ingredient,
+                    key=lambda ia_: ia_.ingredient,
                 )
             )
         )

@@ -17,16 +17,16 @@ from cocktail_24.cocktail_system import (
 )
 
 
-def run_command_gen_sync(robo_socket, G):
+def run_command_gen_sync(robo_socket, gen):
     try:
-        to_send = next(G)
+        to_send = next(gen)
         while True:
             # print(f"{to_send=}")
             if to_send is not None:
                 robo_socket.send(f"{to_send}\r\n".encode("ascii"))
             response = robo_socket.recv(1024).decode("ascii").strip()
             # print(f"got response {response=}")
-            to_send = G.send(response)
+            to_send = gen.send(response)
     except StopIteration as e:
         return e.value
 
@@ -67,7 +67,6 @@ def cocktail_runtime[
         return e.value
 
 
-from asyncio import get_event_loop
 from serial_asyncio import open_serial_connection
 
 
@@ -103,6 +102,7 @@ async def async_cocktail_runtime(cocktail_gen):
                             CocktailRobotSendResponse(resp=response)
                         )
                     except TimeoutError:
+                        # TODO DANGER: is this useful at all?
                         to_handle = cocktail_gen.send(
                             CocktailRobotSendResponse(resp=None)
                         )

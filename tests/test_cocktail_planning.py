@@ -7,7 +7,6 @@ from cocktail_24.planning.cocktail_planner import (
     SimpleRobotIngredientPlanner,
     SimpleRobotIngredientPlannerConfig,
     SlotAmounts,
-    IngredientAmounts,
     DefaultRecipeCocktailPlanner,
 )
 from cocktail_24.recipe_samples import SampleRecipes
@@ -37,7 +36,7 @@ def test_robot_planning():
 
     step1_planned = ingredient_planner.plan_ingredients(
         available_slot_amounts=SlotAmounts.from_slots(initial_state.slots),
-        amounts=IngredientAmounts.from_recipe_add(recipe.steps[0].instruction),
+        amounts=recipe.steps[0].instruction.to_add,
     )
     print(step1_planned)
 

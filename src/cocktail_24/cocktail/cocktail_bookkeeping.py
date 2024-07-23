@@ -12,7 +12,6 @@ from pydantic.dataclasses import dataclass
 from cocktail_24.cocktail.cocktail_recipes import IngredientId, CocktailRecipe, RecipeId
 from cocktail_24.recipe_samples import TypicalIngredients, SampleRecipes
 
-
 OrderId = NewType("OrderId", uuid.UUID)
 UserId = NewType("UserId", uuid.UUID)
 
@@ -55,40 +54,40 @@ class SlotRefilledEvent:
 
 @dataclass(frozen=True)
 class OrderPlacedEvent:
-    order_id: uuid.UUID
+    order_id: OrderId
     recipe_id: RecipeId
     user_id: UserId
 
 
 @dataclass(frozen=True)
 class OrderCancelledEvent:
-    order_id: uuid.UUID
+    order_id: OrderId
 
 
 @dataclass(frozen=True)
 class OrderAbortedEvent:
-    order_id: uuid.UUID
+    order_id: OrderId
 
 
 @dataclass(frozen=True)
 class OrderEnqueuedEvent:
-    order_id: uuid.UUID
+    order_id: OrderId
 
 
 # TODO add reason?
 @dataclass(frozen=True)
 class OrderDequeuedEvent:
-    order_id: uuid.UUID
+    order_id: OrderId
 
 
 @dataclass(frozen=True)
 class OrderFulfilledEvent:
-    order_id: uuid.UUID
+    order_id: OrderId
 
 
 @dataclass(frozen=True)
 class OrderExecutingEvent:
-    order_id: uuid.UUID
+    order_id: OrderId
 
 
 @dataclass(frozen=True)
@@ -146,7 +145,7 @@ class Order:
 
     def update_status(self, status: OrderStatus) -> "Order":
         # TODO weird spot. remove
-        logging.warning(f"updated order status {self}")
+        # logging.warning(f"updated order status {self}")
         return Order(
             order_id=self.order_id,
             status=status,
@@ -208,14 +207,14 @@ class CocktailBarState:
                 time_of_order=time_of_event,
             )
         else:
-            logging.error((f"tried to readd existing order {order_placed}"))
+            logging.error(f"tried to readd existing order {order_placed}")
 
     def handle_order_status_change(self, order_id, new_state: OrderStatus):
         if order_id in self.orders:
             self.orders[order_id] = self.orders[order_id].update_status(new_state)
         else:
             logging.warning(
-                (f"tried to mark nonexisting order {order_id=} {new_state=}")
+                f"tried to mark nonexisting order %s %s", order_id, new_state
             )
         self.order_queue = tuple(id_ for id_ in self.order_queue if id_ != order_id)
 
@@ -225,7 +224,7 @@ class CocktailBarState:
                 OrderStatus.enqueued
             )
         else:
-            logging.warning((f"tried to mark nonexisting order {order_id=} enqueued"))
+            logging.warning(f"tried to mark nonexisting order %s enqueued", order_id)
         self.order_queue = self.order_queue + (order_id,)
 
     @staticmethod
@@ -235,7 +234,7 @@ class CocktailBarState:
     ) -> "CocktailBarState":
         if initial_state is None:
             initial_state = CocktailBarState(
-                order_queue=[], slots=[], orders={}, recipes={}
+                order_queue=tuple(), slots=[], orders={}, recipes={}
             )
         state = initial_state
         for time_of_event, event in events:
@@ -263,7 +262,7 @@ class CocktailBarState:
                 case RecipeCreatedEvent(recipe=recipe, creator_user_id=_user_id):
                     state.recipes[recipe.recipe_id] = recipe
                 case QueuePurgedEvent():
-                    state.order_queue = []
+                    state.order_queue = tuple()
                 case _:
                     logging.error(f"unhandled event {event}")
             # print(f"new slots: {state.slots}")
@@ -301,9 +300,11 @@ def test_can_dump_bar_state():
     mth_id = uuid.uuid4()
     the_vomit = SampleRecipes.the_vomit()
     events += [
-        RecipeCreatedEvent(the_vomit, creator_user_id=mth_id),
+        RecipeCreatedEvent(the_vomit, creator_user_id=UserId(mth_id)),
         OrderPlacedEvent(
-            order_id=good_order_id, recipe_id=the_vomit.recipe_id, user_id=mth_id
+            order_id=good_order_id,
+            recipe_id=the_vomit.recipe_id,
+            user_id=UserId(mth_id),
         ),
         OrderFulfilledEvent(order_id=good_order_id),
     ]

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Generator, Protocol
+from typing import Protocol
 
 from cocktail_24.cocktail_robo import CocktailRobotPumpTask
 

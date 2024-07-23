@@ -58,10 +58,10 @@ class DefaultRobotOperations(RobotOperations):
     ) -> Generator[str, str, RoboTcpCommandResult]:
         initial_status = yield from self._interface_.gen_read_status()
         initial_success_count = initial_status.success_count
-        res = yield from self.gen_run_job_once(job_name)
+        yield from self.gen_run_job_once(job_name)
         while True:
             status = yield from self._interface_.gen_read_status()
             if initial_success_count != status.success_count:
                 return RoboTcpCommandResult.ok
             print("job did not signal completion! rerunning...")
-            res = yield from self.gen_run_job_once(None)
+            yield from self.gen_run_job_once(None)

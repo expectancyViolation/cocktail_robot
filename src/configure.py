@@ -1,9 +1,9 @@
 import datetime
-import datetime
 import uuid
 
 from cocktail_24.cocktail.cocktail_api import (
     CocktailBarStatePersistence,
+    EventOccurrence,
 )
 from cocktail_24.cocktail.cocktail_bookkeeping import (
     CocktailBarState,
@@ -12,6 +12,7 @@ from cocktail_24.cocktail.cocktail_bookkeeping import (
     OrderPlacedEvent,
     UserId,
 )
+from cocktail_24.cocktail.dummy_events import gen_dummy_events
 from cocktail_24.cocktail_management import CocktailManagement
 from cocktail_24.cocktail_robot_interface import CocktailRobot
 from cocktail_24.cocktail_system import (
@@ -138,8 +139,7 @@ def configure_initial_state():
             user_id=UserId(mth_id),
         ),
     ]
+    events += [*gen_dummy_events()]
 
-    timed_events = [(datetime.datetime.now(), event) for event in events]
-    return CocktailBarState.apply_events(
-        events=timed_events, initial_state=inital_state
-    )
+    timed_events = [EventOccurrence(event, datetime.datetime.now()) for event in events]
+    return timed_events

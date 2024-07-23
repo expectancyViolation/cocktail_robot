@@ -1,12 +1,11 @@
 import datetime
-import json
 import pickle
 import sqlite3
 import uuid
+from typing import Protocol, Iterable
 
 # from dataclasses import dataclass
 from pydantic.dataclasses import dataclass
-from typing import Protocol, Iterable
 
 from cocktail_24.cocktail.cocktail_bookkeeping import (
     CocktailBarEvent,
@@ -22,11 +21,6 @@ from cocktail_24.cocktail.cocktail_bookkeeping import (
     SlotRefilledEvent,
 )
 from cocktail_24.cocktail.cocktail_recipes import CocktailRecipe, RecipeId
-from util import (
-    check_pydantic_json_roundtrip,
-    pydantic_dataclass_to_json,
-    pydantic_dataclass_from_json,
-)
 
 
 @dataclass(frozen=True)
@@ -82,7 +76,9 @@ class SqliteCocktailBarStatePersistence(CocktailBarStatePersistence):
         ]
         return CocktailBarState.apply_events(events, None)
 
-    def _store_events_(self, events: list[EventOccurrence]) -> None:
+    def _store_events_(
+        self, events: list[tuple[datetime.datetime, CocktailBarEvent]]
+    ) -> None:
         data = [[pickle.dumps(event)] for event in events]
         self._con_.executemany("INSERT INTO events VALUES(?)", data)
         self._con_.commit()
@@ -118,11 +114,10 @@ class CocktailApi:
             [EventOccurrence(event=created_event, timestamp=self._get_current_time_())]
         )
 
-    def place_order(self, recipe_id: RecipeId) -> OrderId:
+    def place_order(self, recipe_id: RecipeId, order_id: OrderId):
         current_state = self._state_persistence_.get_current_state()
         user_id = UserId(uuid.uuid4())
         assert recipe_id in current_state.recipes
-        order_id = OrderId(uuid.uuid4())
         order_placed_event = OrderPlacedEvent(
             order_id=order_id, recipe_id=recipe_id, user_id=user_id
         )

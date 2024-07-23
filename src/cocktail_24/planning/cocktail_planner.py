@@ -55,7 +55,9 @@ class CocktailSystemConfig:
 
 class RobotMotionPlanner(Protocol):
 
-    def gen_plan_move(self, from_pos: CocktailPosition, to_pos: CocktailPosition): ...
+    def gen_plan_move(
+        self, from_pos: CocktailPosition, to_pos: CocktailPosition
+    ) -> Generator[CocktailRobotMoveTask, None, None]: ...
 
 
 class SimpleRobotMotionPlanner(RobotMotionPlanner):
