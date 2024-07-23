@@ -77,11 +77,16 @@ class PlanProgress:
     queued_step_pos: int
     finished_step_pos: int
 
+    @staticmethod
+    def no_progress_yet(plan: CocktailSystemPlan) -> 'PlanProgress':
+        return PlanProgress(plan=plan, queued_step_pos=-1, finished_step_pos=-1)
+
     def is_finished(self):
         return self.finished_step_pos + 1 == len(self.plan.steps)
 
     def update(
-        self, queued_step_pos: int | None = None, finished_step_pos: int | None = None
+            self, queued_step_pos: int | None = None,
+            finished_step_pos: int | None = None
     ) -> "PlanProgress":
         new_queued_step_pos = (
             queued_step_pos if queued_step_pos is not None else self.queued_step_pos
@@ -107,7 +112,7 @@ class CocktailSystemState:
 
 
 def _wrap_tcp_effect_[
-    T
+T
 ](gen: Generator[str | None, str | None, T]) -> Generator[
     CocktailRobotSendEffect, CocktailRobotSendResponse, T
 ]:
@@ -124,7 +129,8 @@ def _wrap_tcp_effect_[
 class CocktailSystem:
 
     def __init__(
-        self, robot: CocktailRobot, pump: PumpInterface, initial_time: float = 0
+            self, robot: CocktailRobot, pump: PumpInterface,
+            initial_time: float = 0
     ):
         self._robot_ = robot
         self._robot_operation_ = robot.gen_operate()
@@ -143,7 +149,8 @@ class CocktailSystem:
     #     return self._plan_progress_
 
     def gen_initialize(self, connect: bool = True):
-        yield from _wrap_tcp_effect_(self._robot_.gen_initialize(connect=connect))
+        yield from _wrap_tcp_effect_(
+            self._robot_.gen_initialize(connect=connect))
         yield from _wrap_tcp_effect_(self._robot_.gen_initialize_job())
 
     def run_plan(self, plan: CocktailSystemPlan):
@@ -216,7 +223,8 @@ class CocktailSystem:
 
     # feed robot queue (this avoids unnecessary pauses due to the slow network interface)
     def gen_handle_robot_steps(
-        self, numbered_robot_steps: Iterable[tuple[int, CocktailRobotTask]]
+            self,
+            numbered_robot_steps: Iterable[tuple[int, CocktailRobotTask]]
     ):
         task_execs = deque(
             [
@@ -238,12 +246,14 @@ class CocktailSystem:
 
     # sequentially handle pumps
     def gen_handle_pump_steps(
-        self, numbered_pump_steps: Iterable[tuple[int, CocktailRobotPumpTask]]
+            self,
+            numbered_pump_steps: Iterable[tuple[int, CocktailRobotPumpTask]]
     ):
         for step_num, pump_step in numbered_pump_steps:
             assert self._pump_.status == PumpStatus.ready
             self._pump_.request_pump(pump_step)
-            self._plan_progress_ = self._plan_progress_.update(queued_step_pos=step_num)
+            self._plan_progress_ = self._plan_progress_.update(
+                queued_step_pos=step_num)
             while self._pump_.status == PumpStatus.pumping:
                 yield
             self._pump_.reset()

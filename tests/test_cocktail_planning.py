@@ -1,4 +1,3 @@
-from cocktail_24.cocktail.cocktail_bookkeeping import SlotStatus, SlotPath
 from cocktail_24.cocktail_robo import CocktailPosition
 from cocktail_24.planning.cocktail_planner import (
     CocktailSystemConfig,
@@ -11,8 +10,8 @@ from cocktail_24.planning.cocktail_planner import (
     IngredientAmounts,
     DefaultRecipeCocktailPlanner,
 )
-from cocktail_24.recipe_samples import TypicalIngredients, SampleRecipes
-from main import configure_initial_state
+from cocktail_24.recipe_samples import SampleRecipes
+from configure import configure_initial_state
 
 
 def test_robot_planning():

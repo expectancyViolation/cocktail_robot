@@ -1,6 +1,11 @@
 import datetime
+import json
+import pickle
+import sqlite3
 import uuid
-from dataclasses import dataclass
+
+# from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Protocol, Iterable
 
 from cocktail_24.cocktail.cocktail_bookkeeping import (
@@ -13,8 +18,15 @@ from cocktail_24.cocktail.cocktail_bookkeeping import (
     OrderCancelledEvent,
     QueuePurgedEvent,
     OrderEnqueuedEvent,
+    SlotStatus,
+    SlotRefilledEvent,
 )
 from cocktail_24.cocktail.cocktail_recipes import CocktailRecipe, RecipeId
+from util import (
+    check_pydantic_json_roundtrip,
+    pydantic_dataclass_to_json,
+    pydantic_dataclass_from_json,
+)
 
 
 @dataclass(frozen=True)
@@ -47,6 +59,39 @@ class InMemoryCocktailBarStatePersistence(CocktailBarStatePersistence):
         self._events_ += new_events
         self._state_ = CocktailBarState.apply_events(new_events, self._state_)
         # print(f"in mem persisted {self._state_}")
+
+    def get_current_state(self):
+        # DANGER RETURNING MUTABLE REFERENCE. DO NOT TOUCH MUTATE
+        return self._state_
+
+
+# TODO this class is a quite generic event recorder and not cocktail related
+class SqliteCocktailBarStatePersistence(CocktailBarStatePersistence):
+
+    def __init__(self, sqlite_file: str):
+        # pass through to fill None
+        self._con_ = sqlite3.connect(sqlite_file)
+        self._con_.execute("CREATE TABLE IF NOT EXISTS events (data BLOB)")
+
+        self._state_ = self._load_events_()
+
+    def _load_events_(self) -> CocktailBarState:
+        events = [
+            pickle.loads(row[0])
+            for row in self._con_.execute("SELECT * FROM events").fetchall()
+        ]
+        return CocktailBarState.apply_events(events, None)
+
+    def _store_events_(self, events: list[EventOccurrence]) -> None:
+        data = [[pickle.dumps(event)] for event in events]
+        self._con_.executemany("INSERT INTO events VALUES(?)", data)
+        self._con_.commit()
+
+    def persist_events(self, occurences: Iterable[EventOccurrence]) -> None:
+        occurences = [*occurences]
+        new_events = [(occ.timestamp, occ.event) for occ in occurences]
+        self._store_events_(new_events)
+        self._state_ = CocktailBarState.apply_events(new_events, self._state_)
 
     def get_current_state(self):
         # DANGER RETURNING MUTABLE REFERENCE. DO NOT TOUCH MUTATE
@@ -116,6 +161,16 @@ class CocktailApi:
             [
                 EventOccurrence(
                     event=OrderEnqueuedEvent(order_id=order_id),
+                    timestamp=self._get_current_time_(),
+                )
+            ]
+        )
+
+    def refill_slot(self, status: SlotStatus):
+        self._state_persistence_.persist_events(
+            [
+                EventOccurrence(
+                    event=SlotRefilledEvent(new_status=status),
                     timestamp=self._get_current_time_(),
                 )
             ]

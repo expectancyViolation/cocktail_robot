@@ -11,6 +11,7 @@ from cocktail_24.cocktail.cocktail_recipes import (
     CocktailRecipeShake,
     CocktailRecipeAddIngredients,
     IngredientAmount,
+    IngredientAmounts,
 )
 from cocktail_24.cocktail_robo import (
     CocktailPosition,
@@ -69,60 +70,6 @@ SlotLookup = dict[str, dict[int, IngredientAmount]]
 
 
 @dataclass(frozen=True)
-class IngredientAmounts:
-    amounts: tuple[IngredientAmount, ...]
-
-    @staticmethod
-    def from_recipe_add(add: CocktailRecipeAddIngredients) -> "IngredientAmounts":
-        return IngredientAmounts(amounts=add.to_add).normalize()
-
-    # remove duplicates and sort
-    def normalize(
-        self,
-    ) -> "IngredientAmounts":
-        lookup = defaultdict(lambda: 0)
-        for ia in self.amounts:
-            lookup[ia.ingredient] += ia.amount_in_ml
-        return IngredientAmounts(
-            amounts=tuple(
-                sorted(
-                    (
-                        IngredientAmount(ingredient=ing, amount_in_ml=amount)
-                        for ing, amount in lookup.items()
-                    ),
-                    key=lambda ia: ia.ingredient,
-                )
-            )
-        )
-
-    def _neg_(self):
-        res = IngredientAmounts(
-            amounts=tuple(
-                [
-                    IngredientAmount(
-                        amount_in_ml=-ia.amount_in_ml, ingredient=ia.ingredient
-                    )
-                    for ia in self.amounts
-                ]
-            )
-        )
-        return res.normalize()
-
-    def __add__(self, other: "IngredientAmounts") -> "IngredientAmounts":
-        res = IngredientAmounts(amounts=self.amounts + other.amounts)
-        return res.normalize()
-
-    def __sub__(self, other: "IngredientAmounts") -> "IngredientAmounts":
-        return self + other._neg_()
-
-    def __abs__(self):
-        return sum(abs(amount.amount_in_ml) for amount in self.amounts)
-
-    def dist(self, other: "IngredientAmounts") -> float:
-        return abs(self - other)
-
-
-@dataclass(frozen=True)
 class SlotAmounts:
     slots_lookup: SlotLookup
 
@@ -170,6 +117,12 @@ class IngredientPlan:
     could_fulfill: bool  # missed target?
     badness: float = 0.0  # target missed by how much
     cost: float = 0.0
+
+
+class IngredientsMissingException(Exception):
+
+    def __init__(self, missing_ingredients: IngredientAmounts):
+        self._missing_ingredients = missing_ingredients
 
 
 class RobotIngredientPlanner(Protocol):
@@ -286,23 +239,28 @@ class DefaultRecipeCocktailPlanner(CocktailPlanner):
         ingredient_plan = self._ingredient_planner_.plan_ingredients(
             self._station_slots_amounts_, ingredients
         )
+        logging.info("planned ingredients %s", ingredient_plan)
 
         remaining_station_amounts = (
             self._station_slots_amounts_ - ingredient_plan.amounts
         )
         assert remaining_station_amounts.is_valid()
         planned_ias = ingredient_plan.amounts.to_ingredient_amounts()
-        dist_to_target = ingredients.dist(planned_ias)
-        print("planned")
-        print(planned_ias)
-        print(dist_to_target)
-        assert dist_to_target < SimpleRobotIngredientPlanner.slop_in_ml
+        missing_ingredients = ingredients - planned_ias
+        missing_amount = abs(missing_ingredients)
+
+        # TODO: missing might be negative on wrong plan!
+        assert all(
+            x.amount_in_ml > -SimpleRobotIngredientPlanner.slop_in_ml
+            for x in missing_ingredients.amounts
+        )
+        if missing_amount > SimpleRobotIngredientPlanner.slop_in_ml:
+            raise IngredientsMissingException(missing_ingredients)
 
         yield from self.gen_pump_ingredients(ingredient_plan.amounts)
         yield from self.gen_zapf_ingredients(ingredient_plan.amounts)
 
     def gen_zapf_ingredients(self, slot_amounts: SlotAmounts):
-        print(f"zapfing {slot_amounts}")
         zapf_amounts = slot_amounts.slots_lookup[
             self._system_config_.zapf_config.zapf_station_id
         ]
@@ -351,9 +309,7 @@ class DefaultRecipeCocktailPlanner(CocktailPlanner):
             case CocktailRecipeShake(shake_duration_in_s=duration_in_s):
                 yield from self.gen_plan_shake(shake_duration_in_s=duration_in_s)
             case CocktailRecipeAddIngredients():
-                yield from self.gen_plan_add_ingredients(
-                    IngredientAmounts.from_recipe_add(step.instruction)
-                )
+                yield from self.gen_plan_add_ingredients(step.instruction.to_add)
             case _:
                 raise Exception(f"unknown instruction {step.instruction}")
 
