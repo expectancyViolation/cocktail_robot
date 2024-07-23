@@ -1,27 +1,29 @@
 import asyncio
+import dataclasses
 import logging
+import uuid
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
 from itertools import count
+from typing import List
 
 from fastapi import FastAPI
+from pydantic.dataclasses import dataclass
 
 from cocktail_24.cocktail.cocktail_api import (
     CocktailApi,
-    InMemoryCocktailBarStatePersistence,
     CocktailBarStatePersistence,
+    SqliteCocktailBarStatePersistence,
 )
-from cocktail_24.cocktail.cocktail_bookkeeping import OrderId
+from cocktail_24.cocktail.cocktail_bookkeeping import OrderId, Order, SlotStatus
+from cocktail_24.cocktail.cocktail_recipes import CocktailRecipe, RecipeId
 from cocktail_24.cocktail_management import CocktailManagement, FakeFulfillmentSystem
+from cocktail_24.cocktail_robot_interface import CocktailRobotState
 from cocktail_24.cocktail_runtime import async_cocktail_runtime
-from main import (
-    configure_system,
-    configure_management,
-    configure_initial_state,
-)
+from cocktail_24.cocktail_system import CocktailSystemStatus
+from cocktail_24.pump_interface.pump_interface import PumpStatus
+from configure import configure_system, configure_management, configure_system_config
 
-
-FAKE_SYSTEM = False
+FAKE_SYSTEM = True
 
 logging.basicConfig(
     format="%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s",
@@ -30,7 +32,7 @@ logging.basicConfig(
 )
 
 
-@dataclass
+@dataclasses.dataclass
 class Cocktail:
     persistence: CocktailBarStatePersistence
     api: CocktailApi
@@ -38,7 +40,8 @@ class Cocktail:
 
 
 def get_management(persistence, fake_system: bool = False):
-    system, system_config = configure_system()
+    system = configure_system()
+    system_config = configure_system_config()
     if fake_system:
         system = FakeFulfillmentSystem()
     return configure_management(system, system_config, persistence=persistence)
@@ -53,9 +56,10 @@ async def update_fake_management():
 
 
 def get_cocktail(fake_system: bool = False):
-    persistence = InMemoryCocktailBarStatePersistence(
-        initial_state=configure_initial_state()
-    )
+    # persistence = InMemoryCocktailBarStatePersistence(
+    #     initial_state=configure_initial_state()
+    # )
+    persistence = SqliteCocktailBarStatePersistence("/tmp/cocktails_2.db")
     cock_api = CocktailApi(state_persistence=persistence)
     return Cocktail(
         persistence=persistence,
@@ -118,27 +122,97 @@ app = FastAPI(lifespan=lifespan)
 
 
 @app.get("/order/{order_id}")
-async def get_order_details(order_id: OrderId):
+async def get_order_details(order_id: OrderId) -> Order:
     cs = COCKTAIL.persistence.get_current_state()
-    return cs
+    return cs.orders[order_id]
 
 
-@app.get("/stort")
-async def get_stort():
+@app.get("/orders")
+async def get_orders() -> List[OrderId]:
     cs = COCKTAIL.persistence.get_current_state()
-    o_id = next(o_id for o_id in cs.orders)
-    COCKTAIL.api.enqueue_order(order_id=o_id)
-    print(f"enqueued:{COCKTAIL.persistence.get_current_state()}")
+    return [order.order_id for order in cs.orders.values()]
 
 
-@app.get("/abort")
+@app.get("/slots")
+async def get_slots() -> List[SlotStatus]:
+    cs = COCKTAIL.persistence.get_current_state()
+    return [*cs.slots]
+
+
+@app.post("/slot_refill")
+async def slot_refill(slot: SlotStatus):
+    COCKTAIL.api.refill_slot(slot)
+
+
+@app.get("/recipe/{recipe_id}")
+async def get_recipe_details(recipe_id: RecipeId) -> CocktailRecipe:
+    cs = COCKTAIL.persistence.get_current_state()
+    return cs.recipes[recipe_id]
+
+
+@app.get("/recipes")
+async def get_recipes() -> List[RecipeId]:
+    cs = COCKTAIL.persistence.get_current_state()
+    return [*cs.recipes.keys()]
+
+
+@app.post("/create_recipe")
+async def create_recipe(recipe: CocktailRecipe):
+    COCKTAIL.api.create_recipe(recipe)
+
+
+@app.post("/place_order")
+async def place_order(recipe_id: RecipeId):
+    COCKTAIL.api.place_order(recipe_id)
+
+
+@app.post("/enqueue_order")
+async def enqueue_order(order_id: OrderId):
+    COCKTAIL.api.enqueue_order(order_id)
+
+
+@app.post("/cancel_order")
+async def cancel_order(order_id: OrderId):
+    COCKTAIL.api.cancel_order(order_id)
+
+
+@dataclass
+class PlanProgress:
+    plan_id: uuid.UUID | None
+    queued_step_pos: int
+    finished_step_pos: int
+
+
+@dataclass
+class CocktailSystemState:
+    status: CocktailSystemStatus
+    plan_progress: PlanProgress | None
+    robot_state: CocktailRobotState
+    pump_status: PumpStatus
+
+
+@app.get("/system/status")
+async def get_system_status() -> CocktailSystemState:
+    state = COCKTAIL.management.get_system().get_state()
+    return CocktailSystemState(
+        plan_progress=(
+            PlanProgress(
+                plan_id=(state.plan_progress.plan.plan_id),
+                queued_step_pos=state.plan_progress.queued_step_pos,
+                finished_step_pos=state.plan_progress.finished_step_pos,
+            )
+            if state.plan_progress is not None
+            else None
+        ),
+        status=state.status,
+        pump_status=state.pump_status,
+        robot_state=state.robot_state,
+    )
+
+
+@app.post("/system/abort")
 async def get_abort():
     COCKTAIL.management.get_system()._robot_.signal_stop()
-
-
-@app.get("/system/state")
-async def get_system_state():
-    return str(COCKTAIL.management.get_system()._robot_.robo_state)
 
 
 # @app.get("/system/runtime_status")

@@ -4,7 +4,10 @@ import uuid
 from enum import Enum
 from typing import NewType, Iterable
 
-from dataclasses import dataclass
+from pydantic import RootModel
+
+# from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 
 from cocktail_24.cocktail.cocktail_recipes import IngredientId, CocktailRecipe, RecipeId
 from cocktail_24.recipe_samples import TypicalIngredients, SampleRecipes
@@ -72,6 +75,12 @@ class OrderEnqueuedEvent:
     order_id: uuid.UUID
 
 
+# TODO add reason?
+@dataclass(frozen=True)
+class OrderDequeuedEvent:
+    order_id: uuid.UUID
+
+
 @dataclass(frozen=True)
 class OrderFulfilledEvent:
     order_id: uuid.UUID
@@ -96,6 +105,7 @@ class RecipeCreatedEvent:
 OrderEvent = (
     OrderPlacedEvent
     | OrderEnqueuedEvent
+    | OrderDequeuedEvent
     | OrderExecutingEvent
     | OrderFulfilledEvent
     | OrderCancelledEvent
@@ -123,6 +133,7 @@ class OrderStatus(Enum):
     fulfilled = "fulfilled"
     executing = "executing"
     aborted = "aborted"
+    dequeued = "dequeued"
 
 
 @dataclass(frozen=True)
@@ -228,7 +239,7 @@ class CocktailBarState:
             )
         state = initial_state
         for time_of_event, event in events:
-            print(f"applying event {event}")  # TODO remove. this will spam
+            # print(f"applying event {event}")  # TODO remove. this will spam
             match event:
                 case SlotRefilledEvent():
                     state.handle_refilled(event)
@@ -245,6 +256,8 @@ class CocktailBarState:
                     state.handle_order_status_change(order_id, OrderStatus.executing)
                 case OrderCancelledEvent(order_id=order_id):
                     state.handle_order_status_change(order_id, OrderStatus.cancelled)
+                case OrderDequeuedEvent(order_id=order_id):
+                    state.handle_order_status_change(order_id, OrderStatus.dequeued)
                 case OrderAbortedEvent(order_id=order_id):
                     state.handle_order_status_change(order_id, OrderStatus.aborted)
                 case RecipeCreatedEvent(recipe=recipe, creator_user_id=_user_id):
@@ -253,8 +266,8 @@ class CocktailBarState:
                     state.order_queue = []
                 case _:
                     logging.error(f"unhandled event {event}")
-            print(f"new slots: {state.slots}")
-            print(f"new queue: {state.order_queue}")
+            # print(f"new slots: {state.slots}")
+            # print(f"new queue: {state.order_queue}")
         return state
 
     def json_snapshot(self) -> any:
