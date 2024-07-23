@@ -1,10 +1,8 @@
-import asyncio
 import datetime
-import logging
+import datetime
 import uuid
 
 from cocktail_24.cocktail.cocktail_api import (
-    InMemoryCocktailBarStatePersistence,
     CocktailBarStatePersistence,
 )
 from cocktail_24.cocktail.cocktail_bookkeeping import (
@@ -14,15 +12,10 @@ from cocktail_24.cocktail.cocktail_bookkeeping import (
     OrderPlacedEvent,
     UserId,
 )
-from cocktail_24.cocktail.cocktail_recipes import RecipeId
 from cocktail_24.cocktail_management import CocktailManagement
 from cocktail_24.cocktail_robot_interface import CocktailRobot
-from cocktail_24.cocktail_runtime import (
-    async_cocktail_runtime,
-)
 from cocktail_24.cocktail_system import (
     CocktailSystem,
-    CocktailSystemPlan,
 )
 from cocktail_24.planning.cocktail_planner import (
     CocktailSystemConfig,
@@ -45,13 +38,7 @@ from cocktail_24.robot_interface.robot_interface import RoboTcpCommands
 from cocktail_24.robot_interface.robot_operations import DefaultRobotOperations
 
 
-def configure_system() -> tuple[CocktailSystem, CocktailSystemConfig]:
-    commands = RoboTcpCommands
-
-    ops = DefaultRobotOperations(commands)
-
-    cocktail = CocktailRobot(tcp_interface=commands, operations=ops)
-
+def configure_system_config():
     system_config = CocktailSystemConfig(
         zapf_config=CocktailZapfStationConfig(ml_per_zapf=30.0, zapf_station_id="zapf"),
         pump_config=CocktailPumpStationConfig(
@@ -59,13 +46,22 @@ def configure_system() -> tuple[CocktailSystem, CocktailSystemConfig]:
         ),
         single_shake_duration_in_s=2.0,
     )
+    return system_config
+
+
+def configure_system() -> CocktailSystem:
+    commands = RoboTcpCommands
+
+    ops = DefaultRobotOperations(commands)
+
+    cocktail = CocktailRobot(tcp_interface=commands, operations=ops)
 
     pump_serial_encoder = DefaultPumpSerialEncoder()
     pump = PumpInterface(encoder=pump_serial_encoder)
 
     cocktail_system = CocktailSystem(robot=cocktail, pump=pump)
 
-    return cocktail_system, system_config
+    return cocktail_system
 
 
 def configure_planning(system_config: CocktailSystemConfig):
@@ -147,24 +143,3 @@ def configure_initial_state():
     return CocktailBarState.apply_events(
         events=timed_events, initial_state=inital_state
     )
-
-
-class FakeSerial:
-
-    def write(self, data):
-        pass
-
-
-def run():
-    system, system_config = configure_system()
-    management = configure_management(system, system_config)
-    asyncio.run(async_cocktail_runtime(cocktail_gen=gen_run_robo(system, management)))
-
-
-if __name__ == "__main__":
-    logging.basicConfig(
-        format="%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s",
-        level=logging.WARNING,
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-    run()

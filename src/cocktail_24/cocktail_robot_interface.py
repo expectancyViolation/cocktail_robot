@@ -1,7 +1,9 @@
 import logging
 import time
 import uuid
-from dataclasses import dataclass
+
+# from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from enum import Enum
 from typing import Generator, Type
 
